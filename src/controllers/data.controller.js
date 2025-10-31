@@ -69,12 +69,13 @@ export default class DataController {
       const phoneNumbers = (payload?.phoneNumbers || "").split(",").map((num) => num.trim()).filter(Boolean);
       
 
-      const includeCalls = { model: ChatgptConversationScoreAiCalls, as: "calls" };
+      const includeCalls = { model: ChatgptConversationScoreAiCalls, as: "calls", required: false };
       includeCalls.where = { operationName: {
         [db.Sequelize.Op.notIn]: [
           "ERROR_IN_CHUNKING_FILES",
           "ERROR_IN_CHATGPT_TRANSCRIPTION",
           "ERROR_IN_CHATGPT_TRANSCRIPTION_ANALYSIS",
+           
         ],
       }, };
       includeCalls.order = [["id", "DESC"]];
