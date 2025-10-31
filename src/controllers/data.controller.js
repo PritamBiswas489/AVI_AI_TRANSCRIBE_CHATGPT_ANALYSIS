@@ -75,7 +75,8 @@ export default class DataController {
           "ERROR_IN_CHUNKING_FILES",
           "ERROR_IN_CHATGPT_TRANSCRIPTION",
           "ERROR_IN_CHATGPT_TRANSCRIPTION_ANALYSIS",
-           
+          "CHATGPT_TRANSCRIPTION_RETRIED",
+          "CHATGPT_TRANSCRIPTION_ANALYSIS_RETRIED"
         ],
       }, };
       includeCalls.order = [["id", "DESC"]];

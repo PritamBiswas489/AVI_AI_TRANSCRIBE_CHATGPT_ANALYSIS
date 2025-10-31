@@ -21,8 +21,11 @@ export const executeFailedTranscription = async () => {
     for (const transcription of failedTranscriptions) {
        await DataController.chatgptTranscription(transcription);
        console.log(`Retried transcription for record ID: ${transcription.id}`);
-       transcription.operation_name = "CHATGPT_TRANSCRIPTION_RETRIED";
-       await transcription.save();
+       const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: transcription.id } });
+       if(getcall.operation_name === 'ERROR_IN_CHATGPT_TRANSCRIPTION'){
+          getcall.operation_name = "CHATGPT_TRANSCRIPTION_RETRIED";
+          await getcall.save();
+       }
         
     }
   } catch (error) {
