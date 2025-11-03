@@ -665,6 +665,7 @@ export default class DataController {
       callrecord.operationName = "ERROR_IN_CHATGPT_TRANSCRIPTION";
       await callrecord.save();
       console.error("Error in chatgptTranscription:", error.message);
+      throw error;
     }
     console.log("=============== chatgpt transcription end =================");
   }
@@ -753,6 +754,7 @@ export default class DataController {
       callrecord.operationName = "ERROR_IN_CHATGPT_TRANSCRIPTION_ANALYSIS";
       callrecord.chatgptModel = this.chatGptModel;
       await callrecord.save();
+      throw error;
       console.error("Error in chatgptTranscriptionAnalysis:", error.message);
     }
   }

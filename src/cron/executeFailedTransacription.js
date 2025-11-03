@@ -13,23 +13,45 @@ export const executeFailedTranscription = async () => {
   try {
     const failedTranscriptions = await ChatgptConversationScoreAiCalls.findAll({
       where: {
-        operation_name: "ERROR_IN_CHATGPT_TRANSCRIPTION"
+        operationName: "ERROR_IN_CHATGPT_TRANSCRIPTION"
       },
       limit: 1
     });
 
-    for (const transcription of failedTranscriptions) {
-       await DataController.chatgptTranscription(transcription);
-       console.log(`Retried transcription for record ID: ${transcription.id}`);
-       const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: transcription.id } });
-       if(getcall.operation_name === 'ERROR_IN_CHATGPT_TRANSCRIPTION'){
-          getcall.operation_name = "CHATGPT_TRANSCRIPTION_RETRIED";
-          await getcall.save();
+     
+       for (const transcription of failedTranscriptions) {
+        console.log(`Retrying transcription for record ID: ${transcription.id}`);
+         try {
+           await DataController.chatgptTranscription(transcription);
+           console.log(
+             `Retried transcription for record ID: ${transcription.id}`
+           );
+           const getcall = await ChatgptConversationScoreAiCalls.findOne({
+             where: { id: transcription.id },
+           });
+           if (getcall.operationName === "ERROR_IN_CHATGPT_TRANSCRIPTION") {
+             getcall.operationName = "CHATGPT_TRANSCRIPTION_RETRIED";
+             await getcall.save();
+           }
+         } catch (error) {
+         
+           const getcall = await ChatgptConversationScoreAiCalls.findOne({
+             where: { id: transcription.id },
+           });
+
+          
+           if (getcall.operationName === "ERROR_IN_CHATGPT_TRANSCRIPTION") {
+             getcall.operationName = "CHATGPT_TRANSCRIPTION_RETRIED";
+             await getcall.save();
+           }
+         }
        }
-        
-    }
+
+   
   } catch (error) {
      console.error("Error executing failed transcriptions:", error.message);
   }
 };
+
+
 
