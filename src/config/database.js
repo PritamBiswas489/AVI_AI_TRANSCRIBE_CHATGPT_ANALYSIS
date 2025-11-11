@@ -1,3 +1,4 @@
+ 
 import './environment.js';
 const dbConfig = {
 	username: process.env.DB_USERNAME ,
@@ -6,6 +7,7 @@ const dbConfig = {
 	options: {
 		host: process.env.DB_HOST  ,
 		dialect: 'mysql',
+		logging:false,
 		pool: {
 			max: 5,
 			min: 0,

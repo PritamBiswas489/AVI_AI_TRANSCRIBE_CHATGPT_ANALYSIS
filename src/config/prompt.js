@@ -180,7 +180,6 @@ ${conversationString}
   return prompt;
 }
 
-
 export function promptTranscriptSummaryGpt4_1(conversationString) {
   const prompt = `
 You are a conversation analysis assistant for a travel agency.
@@ -351,8 +350,7 @@ If uncertain, output empty strings or empty arrays instead of omitting fields.
   return prompt;
 }
 
-
-export function promptTranscriptSummaryProcess(conversationString) {
+export function promptTranscriptSummaryProcessbk(conversationString) {
   const prompt = `Analyze this Hebrew travel agent-customer conversation. Return valid JSON with English keys, Hebrew values. 
 
 **Rules:**
@@ -427,4 +425,92 @@ ${conversationString}`;
   return prompt;
 }
 
+export function promptTranscriptSummaryProcess(conversationString) {
+  const prompt = `Analyze this Hebrew travel agent-customer conversation. Return valid JSON with English keys, Hebrew values. 
 
+**Rules:**
+- Numbers as numeric type (use 0 for unknown)
+- Text as strings (use empty "" for unknown)
+- Booleans: true/false only
+- Enums: pick ONE value only (e.g., "high" not "high/medium/low")
+- Service scores: 1-5 scale (1=poor, 5=excellent)
+- Dates: "DD/MM/YYYY" format or empty ""
+- If conversation is too short/incomplete, fill what's available and mark others as empty/0/false
+
+\`\`\`json
+{
+  "summary": "",
+  "analysis": {
+    "conversation_summary": "",
+    "customer_intent": "",
+    "destination": "",
+    "budget_constraint": false,
+    "objections": [],
+    "interest_level": "",
+    "overall_sentiment": ""
+  },
+  "insights": {
+    "conversion_probability": 0.0,
+    "engagement_level": "",
+    "urgency_level": "",
+    "booking_readiness": ""
+  },
+  "service_score": {
+    "message_clarity": 0,
+    "empathy_and_understanding": 0,
+    "need_identification": 0,
+    "call_to_action": 0,
+    "average_score": 0.0
+  },
+  "quality_checklist": {
+    "explained_company": false,
+    "built_itinerary_with_days": false,
+    "explained_cancellation_policy": false,
+    "committed_best_price": false,
+    "separated_itinerary_from_hotels": false,
+    "aligned_price_expectations": false,
+    "created_personal_connection": false,
+    "led_conversation": false
+  },
+  "financial_analysis": {
+    "total_amount_discussed": 0,
+    "budget_flexibility_level": "",
+    "price_sensitivity": "",
+    "discount_requested": false,
+    "payment_method_discussed": "",
+    "price_objections": [],
+    "exchange_rate_discussed": false,
+    "exchange_rate_concerns": [],
+    
+    "exchange_rate_resistance": false,
+    "exchange_rate_resistance_details": "",
+    
+    "competitors_mentioned": false,
+    "competitors_details": "",
+
+    "payment_terms_resistance": false,
+    "payment_terms_resistance_details": "",
+
+    "cancellation_policy_resistance": false,
+    "cancellation_policy_resistance_details": ""
+  },
+  "booking_details": {
+    "travel_dates": "",
+    "destination_confirmed": "",
+    "adults_count": 0,
+    "children_count": 0,
+    "travel_duration_days": 0,
+    "special_requirements": [],
+    "accommodation_type": "",
+    "transportation_included": false,
+
+    "agent_advised_independent_flight_booking": false
+  }
+}
+
+\`\`\`
+
+Conversation:
+${conversationString}`;
+  return prompt;
+}

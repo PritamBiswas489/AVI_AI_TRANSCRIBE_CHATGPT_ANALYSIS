@@ -211,7 +211,251 @@ router.get('/completed-call-list', async (req, res) => {
 });
 
 
+/**
+ * @swagger
+ * /api/email-analysis-data:
+ *   get:
+ *     summary: Get email analysis data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     responses:
+ *       200:
+ *         description: Returns email analysis data
+ */
+router.get('/email-analysis-data', async (req, res) => {
+    const response = await DataController.emailAnalysis({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
 
+
+/**
+ * @swagger
+ * /api/get-exchange-rate-resistance-data:
+ *   get:
+ *     summary: Get exchange rate resistance data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *     responses:
+ *       200:
+ *         description: Returns exchange rate resistance data
+ */
+router.get('/get-exchange-rate-resistance-data', async (req, res) => {
+    const response = await DataController.exchangeRateResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+/**
+ * @swagger
+ * /api/get-competitors-mentioned-data:
+ *   get:
+ *     summary: Get competitors mentioned data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *     responses:
+ *       200:
+ *         description: Returns competitors mentioned data
+ */
+router.get('/get-competitors-mentioned-data', async (req, res) => {
+    const response = await DataController.competitorsMentionedData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+/**
+ * @swagger
+ * /api/get-payment-terms-resistance-data:
+ *   get:
+ *     summary: Get payment terms resistance data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *     responses:
+ *       200:
+ *         description: Returns payment terms resistance data
+ */
+router.get('/get-payment-terms-resistance-data', async (req, res) => {
+    const response = await DataController.paymentTermsResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
+/**
+ * @swagger
+ * /api/get-cancellation-policy-resistance-data:
+ *   get:
+ *     summary: Get cancellation policy resistance data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *     responses:
+ *       200:
+ *         description: Returns cancellation policy resistance data
+ */
+router.get('/get-cancellation-policy-resistance-data', async (req, res) => {
+    const response = await DataController.cancellationPolicyResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
+/**
+ * @swagger
+ * /api/get-agent-advised-independent-flight-booking-data:
+ *   get:
+ *     summary: Get agent advised independent flight booking data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *     responses:
+ *       200:
+ *         description: Returns agent advised independent flight booking data
+ */
+router.get('/get-agent-advised-independent-flight-booking-data', async (req, res) => {
+    const response = await DataController.agentAdvisedIndependentFlightBookingData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
 
 /**
  * @swagger
@@ -323,6 +567,116 @@ router.post('/execute-chatgpt-transcription-analysis', async (req, res) => {
     console.log("getcall", getcall);
     await DataController.chatgptTranscriptionAnalysis(getcall);
     res.return({ message: 'ChatGPT transcription processing started' });
+});
+
+/**
+ * @swagger
+ * /api/execute-insert-analysis-record:
+ *   post:
+ *     summary: Execute insert analysis record endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               call_id:
+ *                 type: string
+ *                 description: Call ID parameter
+ *     responses:
+ *       200:
+ *         description: execute-insert-analysis-record endpoint is working
+ */
+router.post('/execute-insert-analysis-record', async (req, res) => {
+    const callId = req.body.call_id;
+    if (!callId) {
+        return res.status(400).json({ error: 'call_id is required' });
+    }
+    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
+    if (!getcall) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    await DataController.insertAnalysisRecord(getcall);
+    res.return({ message: 'Analysis record insertion started' });
+
+});
+/**
+ * @swagger
+ * /api/execute-generate-embeddings:
+ *   post:
+ *     summary: Execute generate embeddings endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               call_id:
+ *                 type: string
+ *                 description: Call ID parameter
+ *     responses:
+ *       200:
+ *         description: execute-generate-embeddings endpoint is working
+ */
+router.post('/execute-generate-embeddings', async (req, res) => {
+    const callId = req.body.call_id;
+    if (!callId) {
+        return res.status(400).json({ error: 'call_id is required' });
+    }
+    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
+    if (!getcall) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    await DataController.generateEmbeddings(getcall);
+    res.return({ message: 'Embeddings generation started' });
+
+});
+/**
+ * @swagger
+ * /api/execute-generate-embeddings-ask-question:
+ *   post:
+ *     summary: Execute generate embeddings ask question endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               call_id:
+ *                 type: string
+ *                 description: Call ID parameter
+ *               question:
+ *                 type: string
+ *                 description: Question to ask about the embeddings
+ *     responses:
+ *       200:
+ *         description: execute-generate-embeddings-ask-question endpoint is working
+ */
+router.post('/execute-generate-embeddings-ask-question', async (req, res) => {
+    const callId = req.body.call_id;
+    const question = req.body.question;
+    if (!callId) {
+        return res.status(400).json({ error: 'call_id is required' });
+    }
+    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
+    if (!getcall) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    const data = await DataController.generateEmbeddingsAskQuestion(getcall, question);
+    res.return(data);
+
 });
 
 /**

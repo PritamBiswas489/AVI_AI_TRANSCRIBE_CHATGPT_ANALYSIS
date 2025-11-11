@@ -99,6 +99,11 @@ export default function ChatgptConversationScoreAiCalls(sequelize, DataTypes) {
                 allowNull: true,
                 field: 'chatgpt_model'
             },
+            embedding: {
+                type: DataTypes.TEXT('long'),
+                allowNull: true,
+                field: 'embedding'
+            },
             createdAt: {
                 type: DataTypes.DATE,
                 allowNull: false,
