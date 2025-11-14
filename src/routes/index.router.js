@@ -724,6 +724,44 @@ router.post('/execute-generate-embeddings-ask-question', async (req, res) => {
 });
 
 
+/**
+ * @swagger
+ * /api/embedding-qa-list:
+ *   get:
+ *     summary: Get embedding Q&A list
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: ticketNumber
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         description: Ticket number to filter by
+ *     responses:
+ *       200:
+ *         description: Returns embedding Q&A list
+ */
+router.get('/embedding-qa-list', async (req, res) => {
+    const response = await DataController.embeddingQaList({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
 
 /**
  * @swagger
@@ -760,253 +798,6 @@ router.post('/send-call-data-btc-thai', async (req, res) => {
     res.return({ message: 'Call data sent to BTC Thai started', result });
 
 });
-
-//==========================================================================================================================================================//
-
-/**
- * @swagger
- * /api/execute-chatgpt-transcription-analysis-gpt-4-1:
- *   post:
- *     summary: Execute chatgpt transcription analysis  gpt-4-1 endpoint
- *     tags: [Execute data individually]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               call_id:
- *                 type: string
- *                 description: Call ID parameter
- *     responses:
- *       200:
- *         description: execute-chatgpt-transcription-analysis-gpt-4-1 endpoint is working
- */
-
-router.post('/execute-chatgpt-transcription-analysis-gpt-4-1', async (req, res) => {
-     const callId = req.body.call_id;
-    if (!callId) {
-        return res.status(400).json({ error: 'call_id is required' });
-    }
-    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
-
-    if (!getcall) {
-        return res.status(404).json({ error: 'Call record not found' });
-    }
-    // console.log("getcall", getcall);
-    await DataController.chatgptTranscriptionAnalysis_gpt_4_1(getcall);
-    res.return({ message: 'ChatGPT transcription processing started' });
-
-});
-
-/**
- * @swagger
- * /api/execute-chatgpt-transcription-analysis-gpt-4-1-mini:
- *   post:
- *     summary: Execute chatgpt transcription analysis  gpt-4-1-mini endpoint
- *     tags: [Execute data individually]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               call_id:
- *                 type: string
- *                 description: Call ID parameter
- *     responses:
- *       200:
- *         description: execute-chatgpt-transcription-analysis-gpt-4-1-mini endpoint is working
- */
-
-
-router.post('/execute-chatgpt-transcription-analysis-gpt-4-1-mini', async (req, res) => {
-     const callId = req.body.call_id;
-    if (!callId) {
-        return res.status(400).json({ error: 'call_id is required' });
-    }
-    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
-
-    if (!getcall) {
-        return res.status(404).json({ error: 'Call record not found' });
-    }
-    console.log("getcall", getcall);
-    await DataController.chatgptTranscriptionAnalysis_gpt_4_1_mini(getcall);
-    res.return({ message: 'ChatGPT transcription processing started' });
-
-});
-
-/**
- * @swagger
- * /api/execute-chatgpt-transcription-analysis-gpt-4-1-nano:
- *   post:
- *     summary: Execute chatgpt transcription analysis  gpt-4-1-nano endpoint
- *     tags: [Execute data individually]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               call_id:
- *                 type: string
- *                 description: Call ID parameter
- *     responses:
- *       200:
- *         description: execute-chatgpt-transcription-analysis-gpt-4-1-nano endpoint is working
- */
-
-router.post('/execute-chatgpt-transcription-analysis-gpt-4-1-nano', async (req, res) => {
-     const callId = req.body.call_id;
-    if (!callId) {
-        return res.status(400).json({ error: 'call_id is required' });
-    }
-    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
-
-    if (!getcall) {
-        return res.status(404).json({ error: 'Call record not found' });
-    }
-    console.log("getcall", getcall);
-    await DataController.chatgptTranscriptionAnalysis_gpt_4_1_nano(getcall);
-    res.return({ message: 'ChatGPT transcription processing started' });
-});
-
-/**
- * @swagger
- * /api/execute-chatgpt-transcription-analysis-gpt-3-5-turbo:
- *   post:
- *     summary: Execute chatgpt transcription analysis  gpt-3-5-turbo endpoint
- *     tags: [Execute data individually]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               call_id:
- *                 type: string
- *                 description: Call ID parameter
- *     responses:
- *       200:
- *         description: execute-chatgpt-transcription-analysis-gpt-3-5-turbo endpoint is working
- */
-router.post('/execute-chatgpt-transcription-analysis-gpt-3-5-turbo', async (req, res) => {
-    const callId = req.body.call_id;
-    if (!callId) {
-      return res.status(400).json({ error: "call_id is required" });
-    }
-    const getcall = await ChatgptConversationScoreAiCalls.findOne({
-      where: { id: callId },
-    });
-
-    if (!getcall) {
-      return res.status(404).json({ error: "Call record not found" });
-    }
-    console.log("getcall", getcall);
-    await DataController.chatgptTranscriptionAnalysis_gpt_3_5_turbo(getcall);
-    res.return({ message: "ChatGPT transcription processing started" });
-
-
-});
-
-/**
- * @swagger
- * /api/execute-chatgpt-transcription-analysis-gpt-5:
- *   post:
- *     summary: Execute chatgpt transcription analysis  gpt-5 endpoint
- *     tags: [Execute data individually]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               call_id:
- *                 type: string
- *                 description: Call ID parameter
- *     responses:
- *       200:
- *         description: execute-chatgpt-transcription-analysis-gpt-5 endpoint is working
- */
-router.post(
-  "/execute-chatgpt-transcription-analysis-gpt-5",
-  async (req, res) => {
-    const callId = req.body.call_id;
-    if (!callId) {
-      return res.status(400).json({ error: "call_id is required" });
-    }
-    const getcall = await ChatgptConversationScoreAiCalls.findOne({
-      where: { id: callId },
-    });
-
-    if (!getcall) {
-      return res.status(404).json({ error: "Call record not found" });
-    }
-    console.log("getcall", getcall);
-    await DataController.chatgptTranscriptionAnalysis_gpt_5(getcall);
-    res.return({ message: "ChatGPT transcription processing started" });
-  }
-);
-
-/**
- * @swagger
- * /api/execute-chatgpt-transcription-analysis-gpt-5-mini:
- *   post:
- *     summary: Execute chatgpt transcription analysis  gpt-5-mini endpoint
- *     tags: [Execute data individually]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               call_id:
- *                 type: string
- *                 description: Call ID parameter
- *     responses:
- *       200:
- *         description: execute-chatgpt-transcription-analysis-gpt-5-mini endpoint is working
- */
-router.post(
-  "/execute-chatgpt-transcription-analysis-gpt-5-mini",
-  async (req, res) => {
-    const callId = req.body.call_id;
-    if (!callId) {
-      return res.status(400).json({ error: "call_id is required" });
-    }
-    const getcall = await ChatgptConversationScoreAiCalls.findOne({
-      where: { id: callId },
-    });
-
-    if (!getcall) {
-      return res.status(404).json({ error: "Call record not found" });
-    }
-    console.log("getcall", getcall);
-    await DataController.chatgptTranscriptionAnalysis_gpt_5_mini(getcall);
-    res.return({ message: "ChatGPT transcription processing started" });
-  }
-);
-
-
-
 
 
 

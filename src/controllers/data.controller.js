@@ -24,7 +24,8 @@ const {
   ChatgptConversationScoreAiCalls,
   ChatgptConversationScoreAiChat,
   ChatgptConversationScoreAiChatMessages,
-  ChatgptConversationScoreAiCallAnalysis
+  ChatgptConversationScoreAiCallAnalysis,
+  ChatgptConversationScoreAiMultipleCallQa
 } = db;
 
 export default class DataController {
@@ -1393,7 +1394,10 @@ export default class DataController {
       const query = question;
       const topK = 5;
       const threshold = 0.3;
+      const ticket_number = callrecords?.[0]?.ticketNumber || 'Unknown';
+      const call_ids = [];
       for (const callrecord of callrecords) {
+            call_ids.push(callrecord.id);
             console.log("===============  Processing call record ID:=====================", callrecord.id);
             const embeddingData = callrecord.embedding;
             if (!embeddingData) {
@@ -1451,16 +1455,59 @@ export default class DataController {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_completion_tokens: 4000,
+        max_completion_tokens: 1500,
       });
       const answer = response.choices[0].message.content;
       console.log("Answer:", answer);
+      ChatgptConversationScoreAiMultipleCallQa.create({
+        ticket_number,
+        call_ids: JSON.stringify(call_ids),
+        question: query,
+        answer: answer
+      });
       return { answer  };
     } catch (error) {
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
       console.error("Error in generateEmbeddingsAskQuestion:", error.message);
       return { answer: "Error generating answer."  };
     }
+  }
+  static async embeddingQaList(request) {
+    const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+
+    const ticket_number = payload?.ticketNumber || null;
+    const limit = payload?.limit || 100;
+    const page = payload?.page || 1;
+    const offset = (page - 1) * limit;
+    try {
+      const records = await ChatgptConversationScoreAiMultipleCallQa.findAndCountAll({
+        where: {
+          ...(ticket_number && { ticket_number }),
+        },
+        offset,
+        limit: parseInt(limit, 10),
+        order: [['createdAt', 'DESC']],
+      });
+      return {
+        status: 200,
+        totalCount: records.count,
+        data: records.rows,
+        error: null,
+      };
+    }catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: [],
+        error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+      };
+    }
+
+
   }
   static async sendCallDataBtcThai(callrecord){
     const postdata ={
@@ -1990,7 +2037,7 @@ ${userQuestion}
       const postData = {
         model: "gpt-5-mini", // "gpt-4o" or "gpt-4o-mini" or "gpt-5-mini".
         messages: aiMessagesFormat,
-        max_completion_tokens: 5000,
+        max_completion_tokens: 1500,
       };
       console.log("======= Start GPT Call =======");
       const response = await axios.post(
