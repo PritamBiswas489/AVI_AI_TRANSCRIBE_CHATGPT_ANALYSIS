@@ -18,6 +18,7 @@ import fetch from "node-fetch";
 import fs from "fs";
 import e from "express";
  
+ 
 const {
   ChatgptConversationScoreAi,
   ChatgptConversationScoreAiCalls,
@@ -62,6 +63,52 @@ export default class DataController {
       };
     }
   }
+  static async countPhoneCalls(request) {
+     const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+     try {
+      const phoneNumbers = (payload?.phoneNumbers || "")
+        .split(",")
+        .map((num) => num.trim())
+        .filter(Boolean);
+
+        const counts = await ChatgptConversationScoreAi.findAll({
+          attributes: [
+            'phoneNumber',
+            [db.Sequelize.fn('COUNT', db.Sequelize.col('id')), 'count']
+          ],
+          where: {
+            phoneNumber: {
+              [db.Sequelize.Op.in]: phoneNumbers,
+            },
+          },
+          group: ['phoneNumber']
+        });
+
+        console.log("Counts:", counts);
+
+        return {
+          status: 200,
+          data: counts.reduce((acc, item) => {
+            acc[item.phoneNumber] = parseInt(item.dataValues.count);
+            return acc;
+          }, {}),
+          error: null,
+        };
+
+     } catch (error) {
+        process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+        return {
+          status: 500,
+          data: [],
+          error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+        };
+    }
+
+  }
   static async getPhoneCalls(request) {
     const {
       payload,
@@ -78,6 +125,9 @@ export default class DataController {
         model: ChatgptConversationScoreAiCalls,
         as: "calls",
         required: false,
+        attributes: {
+          exclude: ['speechText', 'chatgptText','embedding']
+        }
       };
       includeCalls.where = {
         operationName: {
@@ -125,17 +175,7 @@ export default class DataController {
               );
             }
 
-            try {
-              if (callData.chatgptText) {
-                callData.chatgptText = JSON.parse(callData.chatgptText);
-              }
-            } catch (e) {
-              console.error(
-                "Error parsing chatgptText for call",
-                callData.id,
-                e
-              );
-            }
+             
 
             try {
               if (callData.hookTwoRequest) {
@@ -186,6 +226,7 @@ export default class DataController {
       const record = await ChatgptConversationScoreAiCalls.findOne({
         include: [{ model: ChatgptConversationScoreAi, as: "conversation" }],
         where: { id: callId },
+        attributes: { exclude: [ 'embedding'] }
       });
       if (!record) {
         return {
@@ -288,6 +329,7 @@ export default class DataController {
       const { count, rows } =
         await ChatgptConversationScoreAiCalls.findAndCountAll({
           include: [{ model: ChatgptConversationScoreAi, as: "conversation" }],
+          attributes: { exclude: [ 'embedding'] },
           where: {
             operationName: {
               [db.Sequelize.Op.in]: ["COMPLETED_SEND_TRANSCRIPT_TO_CLIENT"],
@@ -468,28 +510,23 @@ export default class DataController {
     const dateFrom = fromDate ? new Date(fromDate) : null;
     const dateTo = toDate ? new Date(toDate) : null;
 
+    console.log("dateFrom:", dateFrom, "dateTo:", dateTo);
+
     const page = payload?.page || 1;
     const limit = payload?.limit || 1000;
     const offset = (page - 1) * limit;
 
     console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
     try {
-      const records = await ChatgptConversationScoreAiCallAnalysis.findAll({
+      const records = await ChatgptConversationScoreAiCallAnalysis.findAndCountAll({
         where: {
           exchange_rate_resistance: "YES",
           ...(dateFrom &&
             dateTo && {
               createdAt: {
-                [db.Sequelize.Op.gte]: new Date(
-                  dateFrom.getFullYear(),
-                  dateFrom.getMonth(),
-                  dateFrom.getDate()
-                ),
-                [db.Sequelize.Op.lt]: new Date(
-                  dateTo.getFullYear(),
-                  dateTo.getMonth(),
-                  dateTo.getDate() + 1
-                ),
+                [db.Sequelize.Op.gte]: dateFrom,
+                [db.Sequelize.Op.lte]: dateTo
+                
               },
             }),
         },
@@ -497,8 +534,9 @@ export default class DataController {
         offset,
         limit: parseInt(limit, 10),
       });
+      
       const exchange_rate_resistance_data = [];
-      for (const record of records) {
+      for (const record of records.rows) {
         const hookTwoRequest = JSON.parse(
           record.callData?.hookTwoRequest || "{}"
         );
@@ -516,6 +554,7 @@ export default class DataController {
       }
       return {
         status: 200,
+        totalCount: records.count,
         data: exchange_rate_resistance_data,
         error: null,
       };
@@ -548,22 +587,14 @@ export default class DataController {
 
     console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
     try {
-      const records = await ChatgptConversationScoreAiCallAnalysis.findAll({
+      const records = await ChatgptConversationScoreAiCallAnalysis.findAndCountAll({
         where: {
           competitors_mentioned: "YES",
           ...(dateFrom &&
             dateTo && {
               createdAt: {
-                [db.Sequelize.Op.gte]: new Date(
-                  dateFrom.getFullYear(),
-                  dateFrom.getMonth(),
-                  dateFrom.getDate()
-                ),
-                [db.Sequelize.Op.lt]: new Date(
-                  dateTo.getFullYear(),
-                  dateTo.getMonth(),
-                  dateTo.getDate() + 1
-                ),
+                [db.Sequelize.Op.gte]: dateFrom,
+                [db.Sequelize.Op.lte]: dateTo
               },
             }),
         },
@@ -572,7 +603,7 @@ export default class DataController {
         limit: parseInt(limit, 10),
       });
       const competitors_mentioned_data = [];
-      for (const record of records) {
+      for (const record of records.rows) {
         const hookTwoRequest = JSON.parse(
           record.callData?.hookTwoRequest || "{}"
         );
@@ -590,6 +621,7 @@ export default class DataController {
       }
       return {
         status: 200,
+        totalCount: records.count,
         data: competitors_mentioned_data,
         error: null,
       };
@@ -621,22 +653,14 @@ export default class DataController {
 
     console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
     try {
-      const records = await ChatgptConversationScoreAiCallAnalysis.findAll({
+      const records = await ChatgptConversationScoreAiCallAnalysis.findAndCountAll({
         where: {
           payment_terms_resistance: "YES",
           ...(dateFrom &&
             dateTo && {
               createdAt: {
-                [db.Sequelize.Op.gte]: new Date(
-                  dateFrom.getFullYear(),
-                  dateFrom.getMonth(),
-                  dateFrom.getDate()
-                ),
-                [db.Sequelize.Op.lt]: new Date(
-                  dateTo.getFullYear(),
-                  dateTo.getMonth(),
-                  dateTo.getDate() + 1
-                ),
+                 [db.Sequelize.Op.gte]: dateFrom,
+                 [db.Sequelize.Op.lte]: dateTo
               },
             }),
         },
@@ -645,7 +669,7 @@ export default class DataController {
         limit: parseInt(limit, 10),
       });
       const payment_terms_resistance_data = [];
-      for (const record of records) {
+      for (const record of records.rows) {
         const hookTwoRequest = JSON.parse(
           record.callData?.hookTwoRequest || "{}"
         );
@@ -663,6 +687,7 @@ export default class DataController {
       }
       return {
         status: 200,
+        totalCount: records.count,
         data: payment_terms_resistance_data,
         error: null,
       };
@@ -694,22 +719,14 @@ export default class DataController {
 
     console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
     try {
-      const records = await ChatgptConversationScoreAiCallAnalysis.findAll({
+      const records = await ChatgptConversationScoreAiCallAnalysis.findAndCountAll({
         where: {
           cancellation_policy_resistance: "YES",
           ...(dateFrom &&
             dateTo && {
               createdAt: {
-                [db.Sequelize.Op.gte]: new Date(
-                  dateFrom.getFullYear(),
-                  dateFrom.getMonth(),
-                  dateFrom.getDate()
-                ),
-                [db.Sequelize.Op.lt]: new Date(
-                  dateTo.getFullYear(),
-                  dateTo.getMonth(),
-                  dateTo.getDate() + 1
-                ),
+                [db.Sequelize.Op.gte]: dateFrom,
+                [db.Sequelize.Op.lte]: dateTo
               },
             }),
         },
@@ -718,7 +735,7 @@ export default class DataController {
         limit: parseInt(limit, 10),
       });
       const cancellation_policy_resistance_data = [];
-      for (const record of records) {
+      for (const record of records.rows) {
         const hookTwoRequest = JSON.parse(
           record.callData?.hookTwoRequest || "{}"
         );
@@ -736,6 +753,7 @@ export default class DataController {
       }
       return {
         status: 200,
+        totalCount: records.count,
         data: cancellation_policy_resistance_data,
         error: null,
       };
@@ -767,22 +785,14 @@ export default class DataController {
 
     console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
     try {
-      const records = await ChatgptConversationScoreAiCallAnalysis.findAll({
+      const records = await ChatgptConversationScoreAiCallAnalysis.findAndCountAll({
         where: {
           agent_advised_independent_flight_booking: "YES",
           ...(dateFrom &&
             dateTo && {
               createdAt: {
-                [db.Sequelize.Op.gte]: new Date(
-                  dateFrom.getFullYear(),
-                  dateFrom.getMonth(),
-                  dateFrom.getDate()
-                ),
-                [db.Sequelize.Op.lt]: new Date(
-                  dateTo.getFullYear(),
-                  dateTo.getMonth(),
-                  dateTo.getDate() + 1
-                ),
+                 [db.Sequelize.Op.gte]: dateFrom,
+                 [db.Sequelize.Op.lte]: dateTo
               },
             }),
         },
@@ -791,7 +801,7 @@ export default class DataController {
         limit: parseInt(limit, 10),
       });
       const agent_advised_independent_flight_booking_data = [];
-      for (const record of records) {
+      for (const record of records.rows) {
         const hookTwoRequest = JSON.parse(
           record.callData?.hookTwoRequest || "{}"
         );
@@ -808,6 +818,7 @@ export default class DataController {
       }
       return {
         status: 200,
+        totalCount: records.count,
         data: agent_advised_independent_flight_booking_data,
         error: null,
       };
@@ -1126,7 +1137,7 @@ export default class DataController {
         await callrecord.save();
         this.deleteCallFiles(callrecord); // Not awaited, runs in background
         this.chatgptTranscriptionAnalysis(callrecord);
-        // this.generateEmbeddings(callrecord); // Not awaited, runs in background
+        this.generateEmbeddings(callrecord); // Not awaited, runs in background
       } else {
         throw new Error("NO_TRANSCRIPTION_TEXT_FOUND");
       }
@@ -1376,42 +1387,54 @@ export default class DataController {
       console.error("Error in generateEmbeddings:", error.message);
     }
   }
-  static async generateEmbeddingsAskQuestion(callrecord, question) {
+  static async generateEmbeddingsAskQuestion(callrecords, question) {
     try {
-      const embeddingData = callrecord.embedding;
-      if (!embeddingData) {
-        console.error("No embedding data found for call record");
-        return null;
-      }
-
-    
+      const matchedChunks = [];
       const query = question;
-      const chunkEmbeddingJSON = JSON.parse(embeddingData);
-      
-      const queryEmbedding = await getEmbedding(query);
-      const threshold = 0.3;
-      const results = chunkEmbeddingJSON
-        .map((chunk) => {
-          const score = cosineSimilarity(queryEmbedding, chunk.embedding);
-          if (score >= threshold) {
-            return { ...chunk, score };
-          }
-        })
-        .filter((r) => r !== undefined);
       const topK = 5;
+      const threshold = 0.3;
+      for (const callrecord of callrecords) {
+            console.log("===============  Processing call record ID:=====================", callrecord.id);
+            const embeddingData = callrecord.embedding;
+            if (!embeddingData) {
+              console.error("No embedding data found for call record ID:", callrecord.id);
+              continue;
+            }
+            
+            const chunkEmbeddingJSON = JSON.parse(embeddingData);
+            const queryEmbedding = await getEmbedding(query);
+            
+            const results = chunkEmbeddingJSON
+              .map((chunk) => {
+                const score = cosineSimilarity(queryEmbedding, chunk.embedding);
+                if (score >= threshold) {
+                  return { ...chunk, score, callrecordId: callrecord.id  };
+                }
+              })
+              .filter((r) => r !== undefined);
+          
+              matchedChunks.push(...results);
+      }
+      matchedChunks.sort((a, b) => b.score - a.score)
+              .slice(0, topK);
 
-      const matchedChunks = results
-        .sort((a, b) => b.score - a.score)
-        .slice(0, topK);
+      for (const chunk of matchedChunks) {
+        console.log(`Record ID: ${chunk.callrecordId} \n Matched Chunk (Score: ${chunk.score.toFixed(4)}): ${JSON.stringify(chunk.text, null,2)} \n  `);
+        
+      }
+      
       const context = matchedChunks
-        .map((item, idx) => `[${idx + 1}] ${item.text}`)
+        .map((item, idx) => `[${item.callrecordId}] ${item.text}`)
         .join("\n\n");
+
+         
 
       // Detect query language and adjust response language accordingly
       const isEnglish = /^[a-zA-Z\s.,!?'"()-]+$/.test(query.trim());
       
       const systemPrompt = `You are a helpful assistant that answers questions based on the provided context. 
         Use only the information from the context to answer. If the context doesn't contain enough information, say so.
+        Always cite which source number [1], [2], etc. you used for each piece of information.
         ${isEnglish ? 'Answer in English.' : 'Answer in Hebrew.'}`;
 
       const userPrompt = `Context:
@@ -1419,7 +1442,7 @@ export default class DataController {
 
         Question: ${query}
 
-        Please provide a clear, accurate answer based on the context above.`;
+        Please provide a clear, accurate answer based on the context above.Cite your sources using [1], [2], etc.`;
       const OPENAI_OBJECT = new OpenAI({ apiKey: process.env.CHATGPT_API_KEY });
 
       const response = await OPENAI_OBJECT.chat.completions.create({
@@ -1436,8 +1459,28 @@ export default class DataController {
     } catch (error) {
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
       console.error("Error in generateEmbeddingsAskQuestion:", error.message);
-      return null;
+      return { answer: "Error generating answer."  };
     }
+  }
+  static async sendCallDataBtcThai(callrecord){
+    const postdata ={
+        'api_key':'VHNXjTLh86A96iPVK56C',
+        'ticket_code': callrecord.ticketNumber,
+        'call_data':callrecord.hookTwoRequest
+    };
+    try{
+      const api_url= "https://btc-thai.com/offer/api/dashbi_add_crm_ticket_call"
+      const response = await axios.post(api_url, postdata, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      return {request: postdata, response: response?.data};
+    } catch(error){
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      console.error("Error in sendCallDataBtcThai:", error.message);
+    }
+
   }
   static async chatgptTranscriptionAnalysis_gpt_4_1(callrecord) {
     const modelversion = "gpt-4.1";

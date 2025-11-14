@@ -120,6 +120,35 @@ router.get('/get-phone-call', async (req, res) => {
     res.return(response);
 });
 
+/**
+ * @swagger
+ * /api/count-phone-call:
+ *   get:
+ *     summary: Count phone calls
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: phoneNumbers
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         description: Phone number to search for
+ *     responses:
+ *       200:
+ *         description: Returns phone call count
+ */
+router.get('/count-phone-call', async (req, res) => {
+    const response = await DataController.countPhoneCalls({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
+
+
+
 
 /**
  * @swagger
@@ -639,6 +668,9 @@ router.post('/execute-generate-embeddings', async (req, res) => {
     res.return({ message: 'Embeddings generation started' });
 
 });
+
+
+
 /**
  * @swagger
  * /api/execute-generate-embeddings-ask-question:
@@ -655,8 +687,11 @@ router.post('/execute-generate-embeddings', async (req, res) => {
  *             type: object
  *             properties:
  *               call_id:
- *                 type: string
- *                 description: Call ID parameter
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of Call ID parameters
+ *                 default: ["1", "2"]
  *               question:
  *                 type: string
  *                 description: Question to ask about the embeddings
@@ -667,6 +702,53 @@ router.post('/execute-generate-embeddings', async (req, res) => {
 router.post('/execute-generate-embeddings-ask-question', async (req, res) => {
     const callId = req.body.call_id;
     const question = req.body.question;
+    if (callId.length === 0) {
+        return res.status(400).json({ error: 'call_id is required' });
+    }
+     
+    const getcalls = await ChatgptConversationScoreAiCalls.findAll({ where: { id: { [db.Sequelize.Op.in]: callId } } });
+   
+    if (!getcalls) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    await Promise.all(getcalls.map(async (call) => {
+        if (!call.embedding) {
+            await DataController.generateEmbeddings(call);
+        }
+    }));
+
+    
+    const data = await DataController.generateEmbeddingsAskQuestion(getcalls, question);
+    res.return(data);
+
+});
+
+
+
+/**
+ * @swagger
+ * /api/send-call-data-btc-thai:
+ *   post:
+ *     summary: Send call data to BTC Thai endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               call_id:
+ *                 type: string
+ *                 description: Call ID parameter
+ *     responses:
+ *       200:
+ *         description: send-call-data-btc-thai endpoint is working
+ */
+router.post('/send-call-data-btc-thai', async (req, res) => {
+    const callId = req.body.call_id;
     if (!callId) {
         return res.status(400).json({ error: 'call_id is required' });
     }
@@ -674,10 +756,12 @@ router.post('/execute-generate-embeddings-ask-question', async (req, res) => {
     if (!getcall) {
         return res.status(404).json({ error: 'Call record not found' });
     }
-    const data = await DataController.generateEmbeddingsAskQuestion(getcall, question);
-    res.return(data);
+    const result = await DataController.sendCallDataBtcThai(getcall);
+    res.return({ message: 'Call data sent to BTC Thai started', result });
 
 });
+
+//==========================================================================================================================================================//
 
 /**
  * @swagger
