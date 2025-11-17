@@ -482,14 +482,12 @@ export function promptTranscriptSummaryProcess(conversationString) {
     "exchange_rate_discussed": false,
     "exchange_rate_concerns": [],
     
-    "exchange_rate_resistance": false,
-    "exchange_rate_resistance_details": "",
     
     "competitors_mentioned": false,
     "competitors_details": "",
 
-    "payment_terms_resistance": false,
-    "payment_terms_resistance_details": "",
+    "payment_terms_or_exchange_rates_resistance": false,
+    "payment_terms_or_exchange_rates_resistance_details": "",
 
     "cancellation_policy_resistance": false,
     "cancellation_policy_resistance_details": ""
@@ -504,7 +502,8 @@ export function promptTranscriptSummaryProcess(conversationString) {
     "accommodation_type": "",
     "transportation_included": false,
 
-    "agent_advised_independent_flight_booking": false
+    "agent_advised_independent_flight_booking": false,
+    "agent_advised_independent_flight_booking_details": ""
   }
 }
 

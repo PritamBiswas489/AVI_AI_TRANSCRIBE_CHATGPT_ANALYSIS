@@ -53,6 +53,10 @@ export default function ChatgptConversationScoreAiCallAnalysis(sequelize, DataTy
                 type: DataTypes.STRING,
                 allowNull: true
             },
+            agent_advised_independent_flight_booking_details:{
+                type: DataTypes.TEXT('long'),
+                allowNull: true
+            },
         },
         {
             tableName: 'chatgpt_conversation_score_ai_call_analysis',

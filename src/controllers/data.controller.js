@@ -17,6 +17,8 @@ import {
 import fetch from "node-fetch";
 import fs from "fs";
 import e from "express";
+import { type } from "os";
+import { or } from "sequelize";
  
  
 const {
@@ -25,7 +27,8 @@ const {
   ChatgptConversationScoreAiChat,
   ChatgptConversationScoreAiChatMessages,
   ChatgptConversationScoreAiCallAnalysis,
-  ChatgptConversationScoreAiMultipleCallQa
+  ChatgptConversationScoreAiMultipleCallQa,
+  ChatgptConversationScoreAiWhatsappMessages
 } = db;
 
 export default class DataController {
@@ -582,6 +585,10 @@ export default class DataController {
     const dateFrom = fromDate ? new Date(fromDate) : null;
     const dateTo = toDate ? new Date(toDate) : null;
 
+    const emails = payload?.emails ? payload.emails.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+    console.log(emails);
+
     const page = payload?.page || 1;
     const limit = payload?.limit || 1000;
     const offset = (page - 1) * limit;
@@ -599,9 +606,22 @@ export default class DataController {
               },
             }),
         },
-        include: [{ model: ChatgptConversationScoreAiCalls, as: "callData" }],
+        include: [
+          { 
+            model: ChatgptConversationScoreAiCalls, 
+            as: "callData",
+            ...(emails.length > 0 && {
+              where: {
+                userEmail: {
+                  [db.Sequelize.Op.in]: emails
+                }
+              }
+            })
+          }
+        ],
         offset,
         limit: parseInt(limit, 10),
+        order: [["createdAt", "DESC"]],
       });
       const competitors_mentioned_data = [];
       for (const record of records.rows) {
@@ -648,6 +668,8 @@ export default class DataController {
     const dateFrom = fromDate ? new Date(fromDate) : null;
     const dateTo = toDate ? new Date(toDate) : null;
 
+    const emails = payload?.emails ? payload.emails.split(',').map(e => e.trim()).filter(Boolean) : [];
+
     const page = payload?.page || 1;
     const limit = payload?.limit || 1000;
     const offset = (page - 1) * limit;
@@ -665,9 +687,22 @@ export default class DataController {
               },
             }),
         },
-        include: [{ model: ChatgptConversationScoreAiCalls, as: "callData" }],
+         include: [
+          { 
+            model: ChatgptConversationScoreAiCalls, 
+            as: "callData",
+            ...(emails.length > 0 && {
+              where: {
+                userEmail: {
+                  [db.Sequelize.Op.in]: emails
+                }
+              }
+            })
+          }
+        ],
         offset,
         limit: parseInt(limit, 10),
+        order: [["createdAt", "DESC"]],
       });
       const payment_terms_resistance_data = [];
       for (const record of records.rows) {
@@ -714,6 +749,9 @@ export default class DataController {
     const dateFrom = fromDate ? new Date(fromDate) : null;
     const dateTo = toDate ? new Date(toDate) : null;
 
+    const emails = payload?.emails ? payload.emails.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+
     const page = payload?.page || 1;
     const limit = payload?.limit || 1000;
     const offset = (page - 1) * limit;
@@ -731,9 +769,22 @@ export default class DataController {
               },
             }),
         },
-        include: [{ model: ChatgptConversationScoreAiCalls, as: "callData" }],
+        include: [
+          { 
+            model: ChatgptConversationScoreAiCalls, 
+            as: "callData",
+            ...(emails.length > 0 && {
+              where: {
+                userEmail: {
+                  [db.Sequelize.Op.in]: emails
+                }
+              }
+            })
+          }
+        ],
         offset,
         limit: parseInt(limit, 10),
+        order: [["createdAt", "DESC"]],
       });
       const cancellation_policy_resistance_data = [];
       for (const record of records.rows) {
@@ -780,6 +831,10 @@ export default class DataController {
     const dateFrom = fromDate ? new Date(fromDate) : null;
     const dateTo = toDate ? new Date(toDate) : null;
 
+
+    const emails = payload?.emails ? payload.emails.split(',').map(e => e.trim()).filter(Boolean) : [];
+
+
     const page = payload?.page || 1;
     const limit = payload?.limit || 1000;
     const offset = (page - 1) * limit;
@@ -797,9 +852,22 @@ export default class DataController {
               },
             }),
         },
-        include: [{ model: ChatgptConversationScoreAiCalls, as: "callData" }],
+       include: [
+          { 
+            model: ChatgptConversationScoreAiCalls, 
+            as: "callData",
+            ...(emails.length > 0 && {
+              where: {
+                userEmail: {
+                  [db.Sequelize.Op.in]: emails
+                }
+              }
+            })
+          }
+        ],  
         offset,
         limit: parseInt(limit, 10),
+        order: [["createdAt", "DESC"]],
       });
       const agent_advised_independent_flight_booking_data = [];
       for (const record of records.rows) {
@@ -814,6 +882,8 @@ export default class DataController {
           contact: hookTwoRequest.Contact || "",
           callStartTimeUTC: hookTwoRequest.StartTimeUTC || "",
           callEndTimeUTC: hookTwoRequest.EndTimeUTC || "",
+          details: record.agent_advised_independent_flight_booking_details || "",
+
         };
         agent_advised_independent_flight_booking_data.push(d);
       }
@@ -1018,6 +1088,46 @@ export default class DataController {
         error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
       };
     }
+  }
+  static async webhookMessage(request) {
+    const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+    try{
+      if(payload?.message.trim().length  === 0){
+        return {
+          status: 400,
+          data: null,
+          error: { message: "Message cannot be empty" },
+        };
+
+      }
+      const response =  await ChatgptConversationScoreAiWhatsappMessages.create({
+        type: payload?.type || "",
+        message: payload?.message || "",
+        ticket: payload?.ticket || "",
+        agent: payload?.agent || "",
+      });
+      return {
+        status: 200,
+        data: {
+          status: "success",
+          message: "Webhook Message processed successfully",
+          response,
+        },
+        error: null,
+      };
+    }catch(error){
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: [],
+        error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+      };
+    }
+
   }
   static async getAudioDuration(filePath) {
     try {
@@ -1267,11 +1377,11 @@ export default class DataController {
     const competitor_names =
       analysisJSON?.financial_analysis?.competitors_details || null;
     const payment_terms_resistance =
-      analysisJSON?.financial_analysis?.payment_terms_resistance === true
+      analysisJSON?.financial_analysis?.payment_terms_or_exchange_rates_resistance === true
         ? "YES"
         : "NO";
     const payment_terms_resistance_details =
-      analysisJSON?.financial_analysis?.payment_terms_resistance_details ||
+      analysisJSON?.financial_analysis?.payment_terms_or_exchange_rates_resistance_details ||
       null;
     const cancellation_policy_resistance =
       analysisJSON?.financial_analysis?.cancellation_policy_resistance === true
@@ -1286,6 +1396,12 @@ export default class DataController {
         ? "YES"
         : "NO";
 
+
+    const agent_advised_independent_flight_booking_details =     
+
+    analysisJSON?.booking_details
+        ?.agent_advised_independent_flight_booking_details  || null;
+
     try {
       // Check if analysis record already exists for this call
       let existingAnalysis =
@@ -1294,8 +1410,8 @@ export default class DataController {
         });
 
       const analysisData = {
-        exchange_rate_resistance,
-        exchange_rate_resistance_details,
+        exchange_rate_resistance:null,
+        exchange_rate_resistance_details:null,
         competitors_mentioned,
         competitor_names,
         payment_terms_resistance,
@@ -1303,6 +1419,7 @@ export default class DataController {
         cancellation_policy_resistance,
         cancellation_policy_resistance_details,
         agent_advised_independent_flight_booking,
+        agent_advised_independent_flight_booking_details
       };
 
       if (existingAnalysis) {

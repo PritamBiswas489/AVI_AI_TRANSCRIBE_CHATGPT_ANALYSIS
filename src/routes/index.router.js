@@ -61,6 +61,45 @@ router.post('/webhookTwo', async (req, res, next) => {
     const response = await DataController.webhookTwo({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
     res.return(response);
 });
+/**
+ * @swagger
+ * /api/webhookMessage:
+ *   post:
+ *     summary: Webhook message endpoint
+ *     tags: [Webhooks]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               type:
+ *                 type: string,
+ *                 description: Type of message
+ *                 example: agent
+ *               message:
+ *                 type: string
+ *                 description: Message content
+ *                 example: Simple message content
+ *               ticket:
+ *                 type: string
+ *                 description: Ticket identifier
+ *                 example: TICKET-12345
+ *               agent:
+ *                 type: string
+ *                 description: Agent identifier
+ *                 example: AGENT-67890
+ *     responses:
+ *       200:
+ *         description: webhookMessage endpoint is working
+ */
+router.post('/webhookMessage', async (req, res, next) => {
+    const response = await DataController.webhookMessage({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
 
 /**
  * @swagger
@@ -259,50 +298,50 @@ router.get('/email-analysis-data', async (req, res) => {
 });
 
 
-/**
- * @swagger
- * /api/get-exchange-rate-resistance-data:
- *   get:
- *     summary: Get exchange rate resistance data
- *     tags: [Data endpoints]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *       - in: query
- *         name: fromDate
- *         schema:
- *           type: string
- *           format: date
- *           nullable: true
- *         description: Start date for filtering data
- *       - in: query
- *         name: toDate
- *         schema:
- *           type: string
- *           format: date
- *           nullable: true
- *         description: End date for filtering data
- *     responses:
- *       200:
- *         description: Returns exchange rate resistance data
- */
-router.get('/get-exchange-rate-resistance-data', async (req, res) => {
-    const response = await DataController.exchangeRateResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
-    res.return(response);
-});
+// /**
+//  * @swagger
+//  * /api/get-exchange-rate-resistance-data:
+//  *   get:
+//  *     summary: Get exchange rate resistance data
+//  *     tags: [Data endpoints]
+//  *     security:
+//  *       - bearerAuth: []
+//  *       - refreshToken: []
+//  *     parameters:
+//  *       - in: query
+//  *         name: page
+//  *         schema:
+//  *           type: integer
+//  *           default: 1
+//  *         description: Page number
+//  *       - in: query
+//  *         name: limit
+//  *         schema:
+//  *           type: integer
+//  *           default: 10
+//  *         description: Number of items per page
+//  *       - in: query
+//  *         name: fromDate
+//  *         schema:
+//  *           type: string
+//  *           format: date
+//  *           nullable: true
+//  *         description: Start date for filtering data
+//  *       - in: query
+//  *         name: toDate
+//  *         schema:
+//  *           type: string
+//  *           format: date
+//  *           nullable: true
+//  *         description: End date for filtering data
+//  *     responses:
+//  *       200:
+//  *         description: Returns exchange rate resistance data
+//  */
+// router.get('/get-exchange-rate-resistance-data', async (req, res) => {
+//     const response = await DataController.exchangeRateResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+//     res.return(response);
+// });
 
 /**
  * @swagger
@@ -340,6 +379,13 @@ router.get('/get-exchange-rate-resistance-data', async (req, res) => {
  *           format: date
  *           nullable: true
  *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
  *     responses:
  *       200:
  *         description: Returns competitors mentioned data
@@ -351,7 +397,7 @@ router.get('/get-competitors-mentioned-data', async (req, res) => {
 
 /**
  * @swagger
- * /api/get-payment-terms-resistance-data:
+ * /api/get-payment-terms-or-exchange-rates-resistance-data:
  *   get:
  *     summary: Get payment terms resistance data
  *     tags: [Data endpoints]
@@ -385,11 +431,18 @@ router.get('/get-competitors-mentioned-data', async (req, res) => {
  *           format: date
  *           nullable: true
  *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
  *     responses:
  *       200:
  *         description: Returns payment terms resistance data
  */
-router.get('/get-payment-terms-resistance-data', async (req, res) => {
+router.get('/get-payment-terms-or-exchange-rates-resistance-data', async (req, res) => {
     const response = await DataController.paymentTermsResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
     res.return(response);
 });
@@ -431,6 +484,13 @@ router.get('/get-payment-terms-resistance-data', async (req, res) => {
  *           format: date
  *           nullable: true
  *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
  *     responses:
  *       200:
  *         description: Returns cancellation policy resistance data
@@ -477,6 +537,13 @@ router.get('/get-cancellation-policy-resistance-data', async (req, res) => {
  *           format: date
  *           nullable: true
  *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
  *     responses:
  *       200:
  *         description: Returns agent advised independent flight booking data
