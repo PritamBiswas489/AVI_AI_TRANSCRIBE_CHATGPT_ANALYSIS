@@ -2,7 +2,8 @@ import express from 'express';
 import DataController from '../controllers/data.controller.js';
 import db from "../databases/models/index.js";
 import { checkSchema, validationResult } from "express-validator";
-const { ChatgptConversationScoreAi, ChatgptConversationScoreAiCalls } = db;
+import { type } from 'os';
+const { ChatgptConversationScoreAi, ChatgptConversationScoreAiCalls, ChatgptConversationScoreAiWhatsappMessages } = db;
 const router = express.Router();
  
 
@@ -830,41 +831,6 @@ router.get('/embedding-qa-list', async (req, res) => {
 
 
 
-/**
- * @swagger
- * /api/send-call-data-btc-thai:
- *   post:
- *     summary: Send call data to BTC Thai endpoint
- *     tags: [Execute data individually]
- *     security:
- *       - bearerAuth: []
- *       - refreshToken: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               call_id:
- *                 type: string
- *                 description: Call ID parameter
- *     responses:
- *       200:
- *         description: send-call-data-btc-thai endpoint is working
- */
-router.post('/send-call-data-btc-thai', async (req, res) => {
-    const callId = req.body.call_id;
-    if (!callId) {
-        return res.status(400).json({ error: 'call_id is required' });
-    }
-    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
-    if (!getcall) {
-        return res.status(404).json({ error: 'Call record not found' });
-    }
-    const result = await DataController.sendCallDataBtcThai(getcall);
-    res.return({ message: 'Call data sent to BTC Thai started', result });
-
-});
 
 
 
@@ -946,6 +912,92 @@ router.post('/delete-call-files', async (req, res) => {
     await DataController.deleteCallFiles(getcall);
     res.return({ message: 'ChatGPT transcription processing started' });
 });
+
+
+/**
+ * @swagger
+ * /api/send-call-data-btc-thai:
+ *   post:
+ *     summary: Send call data to BTC Thai endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     responses:
+ *       200:
+ *         description: send-call-data-btc-thai endpoint is working
+ */
+router.post('/send-call-data-btc-thai', async (req, res) => {
+    const getcalls = await ChatgptConversationScoreAiCalls.findAll(
+        { 
+            where: { sendToBtc: false },
+            attributes: ['id', 'ticketNumber','hookTwoRequest'],
+            limit:2,
+            order: [['createdAt', 'DESC']]
+        },
+    );
+
+     
+    if (getcalls.length === 0) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    
+
+     const d = [];
+     const callIds = []; 
+     
+     for (const call of getcalls) {
+        d.push({ ticket_code: call.ticketNumber, data: JSON.parse(call.hookTwoRequest)});
+        callIds.push(call.id);
+     }
+    const result = await DataController.sendCallDataBtcThai(d, callIds);
+    res.return({ message: 'Call data sent to BTC Thai started', result });
+
+});
+
+/**
+ * @swagger
+ * /api/send-agent-message-btc-offer:
+ *   post:
+ *     summary: Send call data to BTC Thai endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     responses:
+ *       200:
+ *         description: send-call-data-btc-thai endpoint is working
+ */
+
+router.post('/send-agent-message-btc-offer', async (req, res) => {
+    const getmessages  = await ChatgptConversationScoreAiWhatsappMessages.findAll({ 
+            where: { sendToBtc: false, type: 'agent' },
+            attributes: ['id', 'message','ticket', 'agent', 'createdAt'],
+            limit:2,
+            order: [['createdAt', 'DESC']]
+        },
+    );
+    if (getmessages.length === 0) {
+        return res.status(404).json({ error: 'Messages not found' });
+    }
+
+    const d = [];
+    const messageIds = [];
+
+    for (const message of getmessages) {
+        d.push({ ticket: message.ticket, agent: message.agent, message: message.message, createdAt: message.createdAt });
+        messageIds.push(message.id);
+    }
+
+    console.log("Messages to send:", d);
+    console.log("Message IDs:", messageIds);
+
+    const result = await DataController.sendMessageDataBtcThai(d, messageIds);
+    res.return({ message: 'Call data sent to BTC Thai started', result });
+
+
+});
+
 
 
 // ✅ Define validation middleware

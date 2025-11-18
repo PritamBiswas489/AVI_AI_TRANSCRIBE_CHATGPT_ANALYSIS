@@ -3,6 +3,8 @@ import { executeFailedTranscription } from "./src/cron/executeFailedTransacripti
 import { executeFailedTranscriptionAnalysis } from "./src/cron/executeFailedTranscriptionAnalysis.js";
 import { runDeleteOldMp3Files } from "./src/cron/deleteOldMp3Files.js";
 import { runDeleteOldChunkFiles } from "./src/cron/deleteOldChunkFilesFolder.js";
+import { sendCronDataToBtcThai } from "./src/cron/sendCronDataToBtcThai.js";
+import { sendCronMessageDataToBtcThai } from "./src/cron/sendCronMessageDataToBtcThai.js";  
 
 
 cron.schedule(
@@ -33,3 +35,18 @@ cron.schedule(
         runDeleteOldChunkFiles();
     }
 );
+
+// cron.schedule(
+//     "*/10 * * * *", // Run every 10 minutes
+//     async () => {
+//         await sendCronDataToBtcThai();
+//     }
+// );
+
+
+// cron.schedule(
+//     "*/11 * * * *", // Run every 11 minutes
+//     async () => {
+//         await sendCronMessageDataToBtcThai();
+//     }
+// );
