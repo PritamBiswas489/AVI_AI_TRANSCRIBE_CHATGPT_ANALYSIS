@@ -5,6 +5,7 @@ import { runDeleteOldMp3Files } from "./src/cron/deleteOldMp3Files.js";
 import { runDeleteOldChunkFiles } from "./src/cron/deleteOldChunkFilesFolder.js";
 import { sendCronDataToBtcThai } from "./src/cron/sendCronDataToBtcThai.js";
 import { sendCronMessageDataToBtcThai } from "./src/cron/sendCronMessageDataToBtcThai.js";  
+import { saveTicketId, saveMessagesOfTicket, summerizeMessagesOfTicket , analyzeSummaryOfMessagesOfTicket} from "./src/cron/messageSummaryAnalysisAi.js";
 
 
 cron.schedule(
@@ -48,5 +49,36 @@ cron.schedule(
 //     "*/11 * * * *", // Run every 11 minutes
 //     async () => {
 //         await sendCronMessageDataToBtcThai();
+//     }
+// );
+
+
+
+// cron.schedule(
+//     "5 0 * * *", // Run every day at 00:05 AM
+//     async () => {
+//         await saveTicketId();
+//     }
+// );
+
+// cron.schedule(
+//     "*/35 * * * *", // Run every 35 minutes
+//     async () => {
+//         await saveMessagesOfTicket();
+//     }
+// );
+
+
+// cron.schedule(
+//     "*/8 * * * *", // Run every 8 minutes
+//     async () => {
+//         await summerizeMessagesOfTicket();
+//     }
+// );
+
+// cron.schedule(
+//     "*/9 * * * *", // Run every 8 minutes
+//     async () => {
+//         await analyzeSummaryOfMessagesOfTicket();
 //     }
 // );

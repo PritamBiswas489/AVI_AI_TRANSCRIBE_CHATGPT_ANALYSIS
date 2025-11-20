@@ -21,7 +21,7 @@ export default function ChatgptConversationScoreAiWhatsappMessages(
         field: "message",
       },
       ticket: {
-        type: DataTypes.TEXT("long"),
+        type: DataTypes.STRING(100),
         allowNull: true,
         field: "ticket",
       },

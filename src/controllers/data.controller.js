@@ -29,7 +29,9 @@ const {
   ChatgptConversationScoreAiChatMessages,
   ChatgptConversationScoreAiCallAnalysis,
   ChatgptConversationScoreAiMultipleCallQa,
-  ChatgptConversationScoreAiWhatsappMessages
+  ChatgptConversationScoreAiWhatsappMessages,
+  ChatgptConversationScoreAiWhatsappMessagesAnalysis,
+  ChatgptConversationScoreAiWhatsappMessagesAnalysisData,
 } = db;
 
 export default class DataController {
@@ -472,6 +474,10 @@ export default class DataController {
         }
         if (record.agent_advised_independent_flight_booking === "YES") {
           const i = { ...d };
+          Object.assign(i, {
+            details:
+              record.agent_advised_independent_flight_booking_details || "",
+          });
           agent_advised_independent_flight_booking_data.push(i);
         }
       }
@@ -1688,7 +1694,7 @@ export default class DataController {
 
     try {
       const api_url =
-        "https://btc-thai.com/offer/api/dashbi_add_crm_ticket_call";
+        "https://btc-thai.com/offer/api/dashbi_add_crm_ticket_message";
       const response = await axios.post(api_url, postdata, {
         headers: {
           "Content-Type": "application/json",
@@ -1711,7 +1717,6 @@ export default class DataController {
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
       console.error("Error in sendMessageDataBtcThai:", error.message);
     }
-
   }
   static async chatgptTranscriptionAnalysis_gpt_4_1(callrecord) {
     const modelversion = "gpt-4.1";
@@ -2361,6 +2366,188 @@ ${userQuestion}
       console.log("New record created:", newRecord.id);
     } else {
       console.log("Record already exists for ticket number:", ticket_number);
+    }
+  }
+  static async summarizeMessagesOfTicket(record) {
+    try {
+      const messagesData = JSON.parse(record.messages);
+      // console.log('Messages data for summarization:', messagesData);
+      const conversationString = messagesData
+        .map((msg) => `${msg.type}: ${msg.message}`)
+        .join("\n");
+      console.log("Constructed conversation string:", conversationString);
+
+      const systemPrompt = `You are a helpful assistant that summarizes conversations between travel agents and customers. 
+        Summarize the following conversation in Hebrew, focusing on key points, customer needs, and any action items for the travel agent.
+        Provide a concise summary that captures the essence of the conversation without adding any external information.`;
+
+      const userPrompt = `Conversation:
+        ${conversationString}`;
+
+      const OPENAI_OBJECT = new OpenAI({ apiKey: process.env.CHATGPT_API_KEY });
+
+      const response = await OPENAI_OBJECT.chat.completions.create({
+        model: this.chatGptModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_completion_tokens: 2000,
+      });
+
+      const summary =
+        response?.choices?.[0]?.message.content || "No summary generated.";
+      console.log("Generated summary:", summary);
+
+      // Update the record with the summary
+      record.gptSummary = summary;
+      record.status = 2; // Mark as summarized
+      await record.save();
+      console.log("Record updated with summary:", record.id);
+
+      return { id: record.id, summary };
+    } catch (err) {
+      console.error("Error in summarizeMessagesOfTicket:", err.message);
+    }
+  }
+  static async analyzeSummaryOfMessagesOfTicket(record) {
+    console.log(
+      `============= start analysis of message summary ${record.id} =================`
+    );
+    try {
+      const summaryText = record.gptSummary || "";
+      const prompt = promptTranscriptSummaryProcess(summaryText);
+      const pData = {
+        model: this.chatGptModel, // "gpt-4o" or "gpt-4o-mini" or "gpt-5-mini".
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a conversation analysis assistant for a travel agency.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_completion_tokens: 4000,
+      };
+      //console.log("Prompt to GPT:", pData); // Log first 1000 chars of prompt
+      const response = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        pData,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.CHATGPT_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 120000,
+        }
+      );
+      // console.log("GPT Response:", response);
+      const gptMessage =
+        response.data?.choices?.[0]?.message?.content ||
+        JSON.stringify({ error: "No content returned from GPT" });
+
+      // Step 4: Parse JSON safely
+      let parsed = {};
+      try {
+        parsed = JSON.parse(gptMessage);
+      } catch {
+        parsed = { summary: gptMessage };
+      }
+      console.log("GPT Response:", parsed);
+      record.gptAnalysis = JSON.stringify(parsed, null, 2);
+      record.status = 3;
+      await record.save();
+      this.insertMessageSummaryAnalysis(record);
+      console.log(
+        "================= chatgpt transcription analysis end ================="
+      );
+    } catch (err) {
+      console.error("Error in analyzeSummaryOfMessagesOfTicket:", err.message);
+    }
+  }
+  static async insertMessageSummaryAnalysis(record) {
+    const analysisJSON = JSON.parse(record.gptAnalysis || "{}");
+    console.log("Financial analysis:", analysisJSON?.financial_analysis);
+    console.log("Booking details:", analysisJSON?.booking_details);
+    const message_id = record.id;
+    const exchange_rate_resistance =
+      analysisJSON?.financial_analysis?.exchange_rate_resistance === true
+        ? "YES"
+        : "NO";
+    const exchange_rate_resistance_details =
+      analysisJSON?.financial_analysis?.exchange_rate_resistance_details ||
+      null;
+    const competitors_mentioned =
+      analysisJSON?.financial_analysis?.competitors_mentioned === true
+        ? "YES"
+        : "NO";
+    const competitor_names =
+      analysisJSON?.financial_analysis?.competitors_details || null;
+    const payment_terms_resistance =
+      analysisJSON?.financial_analysis
+        ?.payment_terms_or_exchange_rates_resistance === true
+        ? "YES"
+        : "NO";
+    const payment_terms_resistance_details =
+      analysisJSON?.financial_analysis
+        ?.payment_terms_or_exchange_rates_resistance_details || null;
+    const cancellation_policy_resistance =
+      analysisJSON?.financial_analysis?.cancellation_policy_resistance === true
+        ? "YES"
+        : "NO";
+    const cancellation_policy_resistance_details =
+      analysisJSON?.financial_analysis
+        ?.cancellation_policy_resistance_details || null;
+    const agent_advised_independent_flight_booking =
+      analysisJSON?.booking_details
+        ?.agent_advised_independent_flight_booking === true
+        ? "YES"
+        : "NO";
+
+    const agent_advised_independent_flight_booking_details =
+      analysisJSON?.booking_details
+        ?.agent_advised_independent_flight_booking_details || null;
+
+    try {
+      // Check if analysis record already exists for this call
+      let existingAnalysis =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.findOne({
+          where: { message_id: message_id },
+        });
+
+      const analysisData = {
+        exchange_rate_resistance: null,
+        exchange_rate_resistance_details: null,
+        competitors_mentioned,
+        competitor_names,
+        payment_terms_resistance,
+        payment_terms_resistance_details,
+        cancellation_policy_resistance,
+        cancellation_policy_resistance_details,
+        agent_advised_independent_flight_booking,
+        agent_advised_independent_flight_booking_details,
+      };
+
+      if (existingAnalysis) {
+        // Update existing record
+        await existingAnalysis.update(analysisData);
+        console.log(`Updated analysis record for message ID: ${message_id}`);
+      } else {
+        // Create new record
+        Object.assign(analysisData, {
+          message_id: message_id,
+          ticket_number: record.ticket_number,
+          messageDate: record.messageDate,
+        });
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.create(analysisData);
+        console.log(`Created new analysis record for message ID: ${message_id}`);
+      }
+    } catch (error) {
+      console.error("Error inserting/updating analysis record:", error.message);
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
     }
   }
 }
