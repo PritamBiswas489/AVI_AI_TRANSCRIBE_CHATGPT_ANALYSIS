@@ -6,6 +6,7 @@ import { runDeleteOldChunkFiles } from "./src/cron/deleteOldChunkFilesFolder.js"
 import { sendCronDataToBtcThai } from "./src/cron/sendCronDataToBtcThai.js";
 import { sendCronMessageDataToBtcThai } from "./src/cron/sendCronMessageDataToBtcThai.js";  
 import { saveTicketId, saveMessagesOfTicket, summerizeMessagesOfTicket , analyzeSummaryOfMessagesOfTicket} from "./src/cron/messageSummaryAnalysisAi.js";
+import { saveAgentData } from "./src/cron/saveAgentData.js";
 
 
 cron.schedule(
@@ -55,7 +56,7 @@ cron.schedule(
 
 
 // cron.schedule(
-//     "5 0 * * *", // Run every day at 00:05 AM
+//     "0 3 * * *", // Run every day at 03:00 AM
 //     async () => {
 //         await saveTicketId();
 //     }
@@ -80,5 +81,12 @@ cron.schedule(
 //     "*/9 * * * *", // Run every 8 minutes
 //     async () => {
 //         await analyzeSummaryOfMessagesOfTicket();
+//     }
+// );
+
+// cron.schedule(
+//     "0 4 * * *", // Run every day at 04:00 AM
+//     async () => {
+//         await saveAgentData();
 //     }
 // );

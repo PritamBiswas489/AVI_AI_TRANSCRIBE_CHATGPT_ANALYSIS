@@ -32,6 +32,7 @@ const {
   ChatgptConversationScoreAiWhatsappMessages,
   ChatgptConversationScoreAiWhatsappMessagesAnalysis,
   ChatgptConversationScoreAiWhatsappMessagesAnalysisData,
+  ChatgptConversationScoreAiAgents
 } = db;
 
 export default class DataController {
@@ -431,7 +432,12 @@ export default class DataController {
             },
           ],
         },
-        include: [{ model: ChatgptConversationScoreAiCalls, as: "callData" }],
+        include: [{ 
+          model: ChatgptConversationScoreAiCalls, 
+          as: "callData",
+          attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
+          include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }], 
+        }],
       });
       for (const record of records) {
         const hookTwoRequest = JSON.parse(
@@ -445,6 +451,9 @@ export default class DataController {
           contact: hookTwoRequest.Contact || "",
           callStartTimeUTC: hookTwoRequest.StartTimeUTC || "",
           callEndTimeUTC: hookTwoRequest.EndTimeUTC || "",
+          agentName: record.callData?.agentData?.name || "",
+          agentId: record.callData?.agentData?.apiId || "",
+          agentEmail: record.callData?.agentData?.email || "",
         };
         if (record.exchange_rate_resistance === "YES") {
           const c = { ...d };
@@ -606,34 +615,41 @@ export default class DataController {
       const records =
         await ChatgptConversationScoreAiCallAnalysis.findAndCountAll({
           where: {
-            competitors_mentioned: "YES",
-            ...(dateFrom &&
-              dateTo && {
-                createdAt: {
-                  [db.Sequelize.Op.gte]: dateFrom,
-                  [db.Sequelize.Op.lte]: dateTo,
-                },
-              }),
+        competitors_mentioned: "YES",
+        ...(dateFrom &&
+          dateTo && {
+            createdAt: {
+          [db.Sequelize.Op.gte]: dateFrom,
+          [db.Sequelize.Op.lte]: dateTo,
+            },
+          }),
           },
           include: [
-            {
-              model: ChatgptConversationScoreAiCalls,
-              as: "callData",
-              ...(emails.length > 0 && {
-                where: {
-                  userEmail: {
-                    [db.Sequelize.Op.in]: emails,
-                  },
-                },
-              }),
+        {
+          model: ChatgptConversationScoreAiCalls,
+          as: "callData",
+          ...(emails.length > 0 && {
+            where: {
+          userEmail: {
+            [db.Sequelize.Op.in]: emails,
+          },
             },
+           
+          }),
+           attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
+           include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }],
+        },
           ],
           offset,
           limit: parseInt(limit, 10),
-          order: [["createdAt", "DESC"]],
+          order: [
+        ["createdAt", "DESC"],
+        [{ model: ChatgptConversationScoreAiCalls, as: "callData" }, { model: ChatgptConversationScoreAiAgents, as: "agentData" }, "name", "ASC"]
+          ],
         });
       const competitors_mentioned_data = [];
       for (const record of records.rows) {
+        console.log(record.callData);
         const hookTwoRequest = JSON.parse(
           record.callData?.hookTwoRequest || "{}"
         );
@@ -646,6 +662,9 @@ export default class DataController {
           callStartTimeUTC: hookTwoRequest.StartTimeUTC || "",
           callEndTimeUTC: hookTwoRequest.EndTimeUTC || "",
           details: record.competitor_names || "",
+          agentName: record.callData?.agentData?.name || "",
+          agentId: record.callData?.agentData?.apiId || "",
+          agentEmail: record.callData?.agentData?.email || "",
         };
         competitors_mentioned_data.push(d);
       }
@@ -713,11 +732,25 @@ export default class DataController {
                   },
                 },
               }),
+              attributes: {
+                exclude: ["embedding", "speechText", "chatgptText"],
+              },
+              include: [
+                { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              ],
             },
           ],
           offset,
           limit: parseInt(limit, 10),
-          order: [["createdAt", "DESC"]],
+          order: [
+            ["createdAt", "DESC"],
+            [
+              { model: ChatgptConversationScoreAiCalls, as: "callData" },
+              { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              "name",
+              "ASC",
+            ],
+          ],
         });
       const payment_terms_resistance_data = [];
       for (const record of records.rows) {
@@ -733,6 +766,9 @@ export default class DataController {
           callStartTimeUTC: hookTwoRequest.StartTimeUTC || "",
           callEndTimeUTC: hookTwoRequest.EndTimeUTC || "",
           details: record.payment_terms_resistance_details || "",
+          agentName: record.callData?.agentData?.name || "",
+          agentId: record.callData?.agentData?.apiId || "",
+          agentEmail: record.callData?.agentData?.email || "",
         };
         payment_terms_resistance_data.push(d);
       }
@@ -800,11 +836,21 @@ export default class DataController {
                   },
                 },
               }),
+              attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
+              include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }],
             },
           ],
           offset,
           limit: parseInt(limit, 10),
-          order: [["createdAt", "DESC"]],
+           order: [
+            ["createdAt", "DESC"],
+            [
+              { model: ChatgptConversationScoreAiCalls, as: "callData" },
+              { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              "name",
+              "ASC",
+            ],
+          ],
         });
       const cancellation_policy_resistance_data = [];
       for (const record of records.rows) {
@@ -820,6 +866,9 @@ export default class DataController {
           callStartTimeUTC: hookTwoRequest.StartTimeUTC || "",
           callEndTimeUTC: hookTwoRequest.EndTimeUTC || "",
           details: record.cancellation_policy_resistance_details || "",
+          agentName: record.callData?.agentData?.name || "",
+          agentId: record.callData?.agentData?.apiId || "",
+          agentEmail: record.callData?.agentData?.email || "",
         };
         cancellation_policy_resistance_data.push(d);
       }
@@ -887,11 +936,21 @@ export default class DataController {
                   },
                 },
               }),
+              attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
+              include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }],
             },
           ],
           offset,
           limit: parseInt(limit, 10),
-          order: [["createdAt", "DESC"]],
+           order: [
+            ["createdAt", "DESC"],
+            [
+              { model: ChatgptConversationScoreAiCalls, as: "callData" },
+              { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              "name",
+              "ASC",
+            ],
+          ],
         });
       const agent_advised_independent_flight_booking_data = [];
       for (const record of records.rows) {
@@ -908,6 +967,9 @@ export default class DataController {
           callEndTimeUTC: hookTwoRequest.EndTimeUTC || "",
           details:
             record.agent_advised_independent_flight_booking_details || "",
+          agentName: record.callData?.agentData?.name || "",
+          agentId: record.callData?.agentData?.apiId || "",
+          agentEmail: record.callData?.agentData?.email || "",
         };
         agent_advised_independent_flight_booking_data.push(d);
       }
@@ -2529,6 +2591,7 @@ ${userQuestion}
         cancellation_policy_resistance_details,
         agent_advised_independent_flight_booking,
         agent_advised_independent_flight_booking_details,
+        ticket_number: record.ticketNumber,
       };
 
       if (existingAnalysis) {
@@ -2539,7 +2602,6 @@ ${userQuestion}
         // Create new record
         Object.assign(analysisData, {
           message_id: message_id,
-          ticket_number: record.ticket_number,
           messageDate: record.messageDate,
         });
         await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.create(analysisData);
