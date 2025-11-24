@@ -32,7 +32,8 @@ const {
   ChatgptConversationScoreAiWhatsappMessages,
   ChatgptConversationScoreAiWhatsappMessagesAnalysis,
   ChatgptConversationScoreAiWhatsappMessagesAnalysisData,
-  ChatgptConversationScoreAiAgents
+  ChatgptConversationScoreAiAgents,
+  ChatgptConversationScoreAiCronTrack,
 } = db;
 
 export default class DataController {
@@ -2611,5 +2612,131 @@ ${userQuestion}
       console.error("Error inserting/updating analysis record:", error.message);
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
     }
+  }
+  static async cronTrack(data){
+    try {
+      await ChatgptConversationScoreAiCronTrack.create({
+        cronFunction: data.cronFunction,
+        data: JSON.stringify(data.data) || null,
+      });
+    } catch (error) {
+      console.error("Error in cronTrack:", error.message);
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+    }
+  }
+  static async getCronTrackData({payload}) {
+     console.log("Fetching cron track data with payload:", payload);
+
+    const limit = parseInt(payload?.limit) || 10;
+    const page = parseInt(payload?.page)|| 1;
+   
+    const offset = (page - 1) * limit;
+    const cronFunction = payload?.cron_function || null;
+    const date = payload?.date || null;
+
+    try {
+      const records = await ChatgptConversationScoreAiCronTrack.findAndCountAll(
+        {
+          where: {
+            ...(cronFunction ? { cronFunction } : {}),
+            ...(date
+              ? {
+                  createdAt: {
+                    [db.Sequelize.Op.gte]: new Date(date + " 00:00:00"),
+                    [db.Sequelize.Op.lte]: new Date(date + " 23:59:59"),
+                  },
+                }
+              : {}),
+          },
+          limit,
+          offset,
+          order: [["createdAt", "DESC"]],
+        }
+      );
+      return records;
+    } catch (error) {
+      console.error("Error in getCronTrackData:", error.message);
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return { count: 0, rows: [] };
+    }
+  }
+  static async getWhatsappMessagesDateIdByTktno({payload}){
+    try {
+      const ticketNumber = payload?.ticketNumber || "";
+       
+      if(!ticketNumber){
+        return {
+          status: 400,
+          data: null,
+          error: { message: "Ticket number is required" },
+        };
+      }
+      const records = await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findAll({
+        where: { ticketNumber: ticketNumber },
+        attributes: ['id', 'messageDate'],
+        order: [['messageDate', 'ASC']],
+      });
+       return {
+        status: 200,
+        data: {
+          status: "success",
+          message: "Messages retrieved successfully",
+          records,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Error in getWhatsappMessagesDateIdByTktno:", error.message);
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: null,
+        error: { message: "CATCH_ERROR", reason: error.message },
+      };
+    }
+
+  }
+  static async getWhatsappMessageWithSummaryAnalysisById({payload}){
+    try{
+      const messageId = payload?.id || "";
+       
+      if(!messageId){
+        return {
+          status: 400,
+          data: null,
+          error: { message: "Message ID is required" },
+        };
+      }
+      const record = await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findOne({
+        where: { id: messageId },
+      });
+      
+      if(!record){
+        return {
+          status: 404,
+          data: null,
+          error: { message: "Message not found" },
+        };
+      }
+      const d = {...record?.dataValues,messages:JSON.parse(record?.messages||"[]"),gptAnalysis:JSON.parse(record?.gptAnalysis||"{}")};
+      return {
+        status: 200,
+        data: {
+          status: "success",
+          message: "Message retrieved successfully",
+          record: d,
+        },
+        error: null,
+      };
+    } catch (error) {
+      console.error("Error in getWhatsappMessageWithSummaryAnalysisById:", error.message);
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: null,
+        error: { message: "CATCH_ERROR", reason: error.message },
+      };
+    }
+
   }
 }

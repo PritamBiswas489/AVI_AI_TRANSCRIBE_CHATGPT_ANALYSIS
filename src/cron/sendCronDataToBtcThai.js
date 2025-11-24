@@ -10,6 +10,8 @@ const { ChatgptConversationScoreAiCalls } = db;
 
 
 export const sendCronDataToBtcThai = async () => {
+    DataController.cronTrack({cronFunction: "sendCronDataToBtcThai", data: {}});
+     
 
     const getcalls = await ChatgptConversationScoreAiCalls.findAll(
         { 

@@ -8,6 +8,8 @@ import DataController from "../controllers/data.controller.js";
 const { ChatgptConversationScoreAiCalls } = db;
 
 export const executeFailedTranscriptionAnalysis = async () => {
+  DataController.cronTrack({cronFunction: "executeFailedTranscriptionAnalysis", data: {}});
+  
   try {
     const failedTranscriptions = await ChatgptConversationScoreAiCalls.findAll({
       where: {

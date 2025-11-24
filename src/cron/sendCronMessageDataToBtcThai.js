@@ -12,6 +12,7 @@ const { ChatgptConversationScoreAiWhatsappMessages } = db;
 
 
 export const sendCronMessageDataToBtcThai = async () => {
+    DataController.cronTrack({cronFunction: "sendCronMessageDataToBtcThai", data: {}});
     const getmessages  = await ChatgptConversationScoreAiWhatsappMessages.findAll({ 
             where: { sendToBtc: false, type: 'agent' },
             attributes: ['id', 'message','ticket', 'agent', 'createdAt'],

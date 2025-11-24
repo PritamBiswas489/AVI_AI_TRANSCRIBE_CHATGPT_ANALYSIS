@@ -10,6 +10,7 @@ console.log('CHECK_DATE:', CHECK_DATE);
 export const saveTicketId = async () => {
     const start = CHECK_DATE + " 00:00:00";
     const end = CHECK_DATE + " 23:59:59";
+    DataController.cronTrack({cronFunction: "saveTicketId", data: {start, end}});
 
     const tickets = await ChatgptConversationScoreAiWhatsappMessages.findAll({
       attributes: ["ticket"],
@@ -63,6 +64,8 @@ export const saveTicketId = async () => {
 }
 //save messages of ticket
 export const saveMessagesOfTicket = async () => {
+    DataController.cronTrack({cronFunction: "saveMessagesOfTicket", data: {}});
+   
     const getData = await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findAll({
         where: {
            status: 0
@@ -115,6 +118,7 @@ export const saveMessagesOfTicket = async () => {
 }
 //summerize messages of ticket
 export const summerizeMessagesOfTicket = async () => {
+    DataController.cronTrack({cronFunction: "summerizeMessagesOfTicket", data: {}});
     const getData = await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findAll({
         where: {
            status: 1
@@ -129,6 +133,7 @@ export const summerizeMessagesOfTicket = async () => {
 }
 //analyze summary of messages of ticket
 export const analyzeSummaryOfMessagesOfTicket = async () => {
+    DataController.cronTrack({cronFunction: "analyzeSummaryOfMessagesOfTicket", data: {}});
     const getData = await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findAll({
         where: {
            status: 2,
@@ -136,7 +141,7 @@ export const analyzeSummaryOfMessagesOfTicket = async () => {
                [db.Op.ne]: "No summary generated."
            }
         },
-        limit: 10,
+        limit: 100,
         order: [['messageDate', 'DESC']]
     });
     for (const record of getData) {

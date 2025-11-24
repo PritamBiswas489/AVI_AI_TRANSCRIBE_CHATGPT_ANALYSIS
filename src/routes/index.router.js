@@ -1083,6 +1083,104 @@ router.get('/chatgpt-chat-transcription-messages', async (req, res) => {
 });
 
 
+/**
+ * @swagger
+ * /api/get-cron-track-data:
+ *   get:
+ *     summary: Get cron track data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: cron_function
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         description: Cron function name to filter by
+ *       - in: query
+ *         name: date
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Date to filter by
+ *     responses:
+ *       200:
+ *         description: Returns cron track data
+ */
+router.get('/get-cron-track-data', async (req, res) => {
+    const response = await DataController.getCronTrackData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
+
+/**
+ * @swagger
+ * /api/whatsapp-messages-date-id-by-tktno:
+ *   get:
+ *     summary:  Get WhatsApp messages with date ID by ticket number
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: ticketNumber
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         description: Ticket number to filter by
+ *     responses:
+ *       200:
+ *         description: Returns WhatsApp messages with analysis
+ */
+router.get('/whatsapp-messages-date-id-by-tktno', async (req, res) => {
+    const response = await DataController.getWhatsappMessagesDateIdByTktno({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
+/**
+ * @swagger
+ * /api/whatsapp-message-with-summary-analysis-by-id:
+ *   get:
+ *     summary: Get WhatsApp message with summary analysis by ID
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Message ID to retrieve analysis for
+ *     responses:
+ *       200:
+ *         description: Returns WhatsApp message with summary analysis
+ */
+router.get('/whatsapp-message-with-summary-analysis-by-id', async (req, res) => {
+    const response = await DataController.getWhatsappMessageWithSummaryAnalysisById({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
 
 
 

@@ -5,6 +5,8 @@ import axios from "axios";
 const { ChatgptConversationScoreAiAgents } = db;
 
 export const saveAgentData = async () => {
+  DataController.cronTrack({cronFunction: "saveAgentData", data: {}});
+ 
   const limit = 1000;
   const page = 1;
 

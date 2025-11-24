@@ -5,7 +5,7 @@ import {
   basename,
   join as pathJoin,
 } from "path";
-
+import DataController from "../controllers/data.controller.js";
  
 async function deleteOldFiles(daysOld) {
   try {
@@ -63,6 +63,8 @@ async function deleteOldFiles(daysOld) {
  
 
 export const runDeleteOldMp3Files = () =>{
+    DataController.cronTrack({cronFunction: "runDeleteOldMp3Files", data: {}});
+   
     const daysOld = 7; // Delete files older than 7 days
     deleteOldFiles( daysOld)
             .then(() => console.log('\nOperation completed successfully!'))

@@ -2,6 +2,7 @@
 
 import fs from "fs/promises";
 import path from "path";
+import DataController from "../controllers/data.controller.js";
 
 /**
  * Deletes files inside folders and then deletes the folders if older than specified days
@@ -109,6 +110,7 @@ const basePath =    path.resolve(
 
 
 export const runDeleteOldChunkFiles = () => {
+DataController.cronTrack({cronFunction: "runDeleteOldChunkFiles", data: {}});
 const daysOld = 7; // Delete folders older than 7 days
 
 deleteFoldersAndFiles(basePath, daysOld)

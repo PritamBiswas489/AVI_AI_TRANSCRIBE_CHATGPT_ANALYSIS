@@ -10,6 +10,7 @@ const {
 } = db;
 
 export const executeFailedTranscription = async () => {
+  DataController.cronTrack({cronFunction: "executeFailedTranscription", data: {}});
   try {
     const failedTranscriptions = await ChatgptConversationScoreAiCalls.findAll({
       where: {
