@@ -4,9 +4,19 @@ import * as Sentry from "@sentry/node";
 import { execSync } from "child_process";
 import axios from "axios";
 import FormData from "form-data";
-import { promptTranscriptSummary, promptTranscriptSummaryGpt4_1 , promptTranscriptSummaryProcess} from "../config/prompt.js";
+import {
+  promptTranscriptSummary,
+  promptTranscriptSummaryGpt4_1,
+  promptTranscriptSummaryProcess,
+} from "../config/prompt.js";
 import { transcribeWithDiarization, extractSegments } from "../transcribe.js";
-import { getEmbedding, embeddingToBuffer, bufferToEmbedding, cosineSimilarity } from "../embedding.js";
+import {
+  getEmbedding,
+  getGeminiEmbedding,
+  embeddingToBuffer,
+  bufferToEmbedding,
+  cosineSimilarity,
+} from "../embedding.js";
 import OpenAI from "openai";
 import {
   resolve as pathResolve,
@@ -19,9 +29,9 @@ import fs from "fs";
 import e from "express";
 import { type } from "os";
 import { or } from "sequelize";
- 
- 
- 
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleAIFileManager } from "@google/generative-ai/server";
+
 const {
   ChatgptConversationScoreAi,
   ChatgptConversationScoreAiCalls,
@@ -34,6 +44,7 @@ const {
   ChatgptConversationScoreAiWhatsappMessagesAnalysisData,
   ChatgptConversationScoreAiAgents,
   ChatgptConversationScoreAiCronTrack,
+  ChatgptConversationScoreAiWhatsappMessagesAnalysisDataSendRecord,
 } = db;
 
 export default class DataController {
@@ -433,12 +444,16 @@ export default class DataController {
             },
           ],
         },
-        include: [{ 
-          model: ChatgptConversationScoreAiCalls, 
-          as: "callData",
-          attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
-          include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }], 
-        }],
+        include: [
+          {
+            model: ChatgptConversationScoreAiCalls,
+            as: "callData",
+            attributes: { exclude: ["embedding", "speechText", "chatgptText"] },
+            include: [
+              { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+            ],
+          },
+        ],
       });
       for (const record of records) {
         const hookTwoRequest = JSON.parse(
@@ -616,36 +631,44 @@ export default class DataController {
       const records =
         await ChatgptConversationScoreAiCallAnalysis.findAndCountAll({
           where: {
-        competitors_mentioned: "YES",
-        ...(dateFrom &&
-          dateTo && {
-            createdAt: {
-          [db.Sequelize.Op.gte]: dateFrom,
-          [db.Sequelize.Op.lte]: dateTo,
-            },
-          }),
+            competitors_mentioned: "YES",
+            ...(dateFrom &&
+              dateTo && {
+                createdAt: {
+                  [db.Sequelize.Op.gte]: dateFrom,
+                  [db.Sequelize.Op.lte]: dateTo,
+                },
+              }),
           },
           include: [
-        {
-          model: ChatgptConversationScoreAiCalls,
-          as: "callData",
-          ...(emails.length > 0 && {
-            where: {
-          userEmail: {
-            [db.Sequelize.Op.in]: emails,
-          },
+            {
+              model: ChatgptConversationScoreAiCalls,
+              as: "callData",
+              ...(emails.length > 0 && {
+                where: {
+                  userEmail: {
+                    [db.Sequelize.Op.in]: emails,
+                  },
+                },
+              }),
+              attributes: {
+                exclude: ["embedding", "speechText", "chatgptText"],
+              },
+              include: [
+                { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              ],
             },
-           
-          }),
-           attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
-           include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }],
-        },
           ],
           offset,
           limit: parseInt(limit, 10),
           order: [
-        ["createdAt", "DESC"],
-        [{ model: ChatgptConversationScoreAiCalls, as: "callData" }, { model: ChatgptConversationScoreAiAgents, as: "agentData" }, "name", "ASC"]
+            ["createdAt", "DESC"],
+            [
+              { model: ChatgptConversationScoreAiCalls, as: "callData" },
+              { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              "name",
+              "ASC",
+            ],
           ],
         });
       const competitors_mentioned_data = [];
@@ -684,6 +707,118 @@ export default class DataController {
       };
     }
   }
+
+  static async whatappmessageCompetitorsMentionedData(request) {
+    const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+
+    const fromDate = payload?.fromDate || null;
+    const toDate = payload?.toDate || null;
+
+    const dateFrom = fromDate ? new Date(fromDate) : null;
+    const dateTo = toDate ? new Date(toDate) : null;
+
+    const emails = payload?.emails
+      ? payload.emails
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean)
+      : [];
+
+    console.log(emails);
+
+    const page = payload?.page || 1;
+    const limit = payload?.limit || 1000;
+    const offset = (page - 1) * limit;
+
+    console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
+    try {
+      const records =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.findAndCountAll(
+          {
+            where: {
+              competitors_mentioned: "YES",
+              ...(dateFrom &&
+                dateTo && {
+                  messageDate: {
+                    [db.Sequelize.Op.gte]: dateFrom,
+                    [db.Sequelize.Op.lte]: dateTo,
+                  },
+                }),
+            },
+            include: [
+              {
+                model: ChatgptConversationScoreAiWhatsappMessages,
+                as: "messageData",
+
+                attributes: ["ticket", "agent"],
+                include: [
+                  {
+                    model: ChatgptConversationScoreAiAgents,
+                    as: "agentDetails",
+                    required: emails.length > 0,
+                    attributes: ["name", "apiId", "email"],
+                    ...(emails.length > 0 && {
+                      where: {
+                        email: {
+                          [db.Sequelize.Op.in]: emails,
+                        },
+                      },
+                    }),
+                  },
+                ],
+              },
+            ],
+            offset,
+            limit: parseInt(limit, 10),
+            order: [["createdAt", "DESC"]],
+          }
+        );
+      const competitors_mentioned_data = [];
+      for (const record of records.rows) {
+        let agents = [];
+        if (record.messageData && record.messageData.length > 0) {
+          const uniqueAgents = new Map();
+          record.messageData.forEach((msg) => {
+            const agentId = msg.agentDetails?.apiId || "";
+            if (agentId && !uniqueAgents.has(agentId)) {
+              uniqueAgents.set(agentId, {
+                agentName: msg.agentDetails?.name || "",
+                agentId: agentId,
+                agentEmail: msg.agentDetails?.email || "",
+              });
+            }
+          });
+          agents = Array.from(uniqueAgents.values());
+        }
+        const d = {
+          msg_id: record.message_id || "",
+          ticket_number: record.ticket_number || "",
+          details: record.competitor_names || "",
+          messageDate: record.messageDate || "",
+          assignedAgents: agents,
+        };
+        competitors_mentioned_data.push(d);
+      }
+      return {
+        status: 200,
+        totalCount: records.count,
+        data: competitors_mentioned_data,
+        error: null,
+      };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: [],
+        error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+      };
+    }
+  }
+
   static async paymentTermsResistanceData(request) {
     const {
       payload,
@@ -788,6 +923,117 @@ export default class DataController {
       };
     }
   }
+
+  static async whatappmessagePaymentTermsResistanceData(request) {
+    const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+
+    const fromDate = payload?.fromDate || null;
+    const toDate = payload?.toDate || null;
+
+    const dateFrom = fromDate ? new Date(fromDate) : null;
+    const dateTo = toDate ? new Date(toDate) : null;
+
+    const emails = payload?.emails
+      ? payload.emails
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean)
+      : [];
+
+    const page = payload?.page || 1;
+    const limit = payload?.limit || 1000;
+    const offset = (page - 1) * limit;
+
+    console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
+    try {
+      const records =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.findAndCountAll(
+          {
+            where: {
+              payment_terms_resistance: "YES",
+              ...(dateFrom &&
+                dateTo && {
+                  messageDate: {
+                    [db.Sequelize.Op.gte]: dateFrom,
+                    [db.Sequelize.Op.lte]: dateTo,
+                  },
+                }),
+            },
+            include: [
+              {
+                model: ChatgptConversationScoreAiWhatsappMessages,
+                as: "messageData",
+
+                attributes: ["ticket", "agent"],
+                include: [
+                  {
+                    model: ChatgptConversationScoreAiAgents,
+                    as: "agentDetails",
+                    required: emails.length > 0,
+                    attributes: ["name", "apiId", "email"],
+                    ...(emails.length > 0 && {
+                      where: {
+                        email: {
+                          [db.Sequelize.Op.in]: emails,
+                        },
+                      },
+                    }),
+                  },
+                ],
+              },
+            ],
+            offset,
+            limit: parseInt(limit, 10),
+            order: [["createdAt", "DESC"]],
+          }
+        );
+      const payment_terms_resistance_data = [];
+      for (const record of records.rows) {
+        let agents = [];
+        if (record.messageData && record.messageData.length > 0) {
+          const uniqueAgents = new Map();
+          record.messageData.forEach((msg) => {
+            const agentId = msg.agentDetails?.apiId || "";
+            if (agentId && !uniqueAgents.has(agentId)) {
+              uniqueAgents.set(agentId, {
+                agentName: msg.agentDetails?.name || "",
+                agentId: agentId,
+                agentEmail: msg.agentDetails?.email || "",
+              });
+            }
+          });
+          agents = Array.from(uniqueAgents.values());
+        }
+
+        const d = {
+          msg_id: record.message_id || "",
+          ticket_number: record.ticket_number || "",
+          details: record.payment_terms_resistance_details || "",
+          messageDate: record.messageDate || "",
+          assignedAgents: agents,
+        };
+        payment_terms_resistance_data.push(d);
+      }
+      return {
+        status: 200,
+        totalCount: records.count,
+        data: payment_terms_resistance_data,
+        error: null,
+      };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: [],
+        error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+      };
+    }
+  }
+
   static async cancellationPolicyResistanceData(request) {
     const {
       payload,
@@ -837,13 +1083,17 @@ export default class DataController {
                   },
                 },
               }),
-              attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
-              include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }],
+              attributes: {
+                exclude: ["embedding", "speechText", "chatgptText"],
+              },
+              include: [
+                { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              ],
             },
           ],
           offset,
           limit: parseInt(limit, 10),
-           order: [
+          order: [
             ["createdAt", "DESC"],
             [
               { model: ChatgptConversationScoreAiCalls, as: "callData" },
@@ -870,6 +1120,123 @@ export default class DataController {
           agentName: record.callData?.agentData?.name || "",
           agentId: record.callData?.agentData?.apiId || "",
           agentEmail: record.callData?.agentData?.email || "",
+        };
+        cancellation_policy_resistance_data.push(d);
+      }
+      return {
+        status: 200,
+        totalCount: records.count,
+        data: cancellation_policy_resistance_data,
+        error: null,
+      };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: [],
+        error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+      };
+    }
+  }
+
+  static async whatsappMessageCancellationPolicyResistanceData(request) {
+    const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+
+    const fromDate = payload?.fromDate || null;
+    const toDate = payload?.toDate || null;
+
+    const dateFrom = fromDate ? new Date(fromDate) : null;
+    const dateTo = toDate ? new Date(toDate) : null;
+
+    const emails = payload?.emails
+      ? payload.emails
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean)
+      : [];
+
+    const page = payload?.page || 1;
+    const limit = payload?.limit || 1000;
+    const offset = (page - 1) * limit;
+
+    console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
+    try {
+      const records =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.findAndCountAll(
+          {
+            where: {
+              cancellation_policy_resistance: "YES",
+              ...(dateFrom &&
+                dateTo && {
+                  messageDate: {
+                    [db.Sequelize.Op.gte]: dateFrom,
+                    [db.Sequelize.Op.lte]: dateTo,
+                  },
+                }),
+            },
+            include: [
+              {
+                model: ChatgptConversationScoreAiWhatsappMessages,
+                as: "messageData",
+
+                attributes: ["ticket", "agent"],
+                include: [
+                  {
+                    model: ChatgptConversationScoreAiAgents,
+                    as: "agentDetails",
+                    required: emails.length > 0,
+                    attributes: ["name", "apiId", "email"],
+                    ...(emails.length > 0 && {
+                      where: {
+                        email: {
+                          [db.Sequelize.Op.in]: emails,
+                        },
+                      },
+                    }),
+                  },
+                ],
+              },
+            ],
+            offset,
+            limit: parseInt(limit, 10),
+            order: [
+              ["createdAt", "DESC"],
+              // [
+              //   { model: ChatgptConversationScoreAiCalls, as: "callData" },
+              //   { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              //   "name",
+              //   "ASC",
+              // ],
+            ],
+          }
+        );
+      const cancellation_policy_resistance_data = [];
+      for (const record of records.rows) {
+        let agents = [];
+        if (record.messageData && record.messageData.length > 0) {
+          const uniqueAgents = new Map();
+          record.messageData.forEach((msg) => {
+            const agentId = msg.agentDetails?.apiId || "";
+            if (agentId && !uniqueAgents.has(agentId)) {
+              uniqueAgents.set(agentId, {
+                agentName: msg.agentDetails?.name || "",
+                agentId: agentId,
+                agentEmail: msg.agentDetails?.email || "",
+              });
+            }
+          });
+          agents = Array.from(uniqueAgents.values());
+        }
+        const d = {
+          msg_id: record.message_id || "",
+          ticket_number: record.ticket_number || "",
+          details: record.cancellation_policy_resistance_details || "",
+          messageDate: record.messageDate || "",
+          assignedAgents: agents,
         };
         cancellation_policy_resistance_data.push(d);
       }
@@ -937,13 +1304,17 @@ export default class DataController {
                   },
                 },
               }),
-              attributes:{ exclude: ["embedding",'speechText','chatgptText'] },
-              include: [{ model: ChatgptConversationScoreAiAgents, as: "agentData" }],
+              attributes: {
+                exclude: ["embedding", "speechText", "chatgptText"],
+              },
+              include: [
+                { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              ],
             },
           ],
           offset,
           limit: parseInt(limit, 10),
-           order: [
+          order: [
             ["createdAt", "DESC"],
             [
               { model: ChatgptConversationScoreAiCalls, as: "callData" },
@@ -971,6 +1342,123 @@ export default class DataController {
           agentName: record.callData?.agentData?.name || "",
           agentId: record.callData?.agentData?.apiId || "",
           agentEmail: record.callData?.agentData?.email || "",
+        };
+        agent_advised_independent_flight_booking_data.push(d);
+      }
+      return {
+        status: 200,
+        totalCount: records.count,
+        data: agent_advised_independent_flight_booking_data,
+        error: null,
+      };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: [],
+        error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+      };
+    }
+  }
+  static async whatappmessageAgentAdvisedIndependentFlightBookingData(request) {
+    const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+
+    const fromDate = payload?.fromDate || null;
+    const toDate = payload?.toDate || null;
+
+    const dateFrom = fromDate ? new Date(fromDate) : null;
+    const dateTo = toDate ? new Date(toDate) : null;
+
+    const emails = payload?.emails
+      ? payload.emails
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean)
+      : [];
+
+    const page = payload?.page || 1;
+    const limit = payload?.limit || 1000;
+    const offset = (page - 1) * limit;
+
+    console.log("Fetching records with dateFrom:", dateFrom, "dateTo:", dateTo);
+    try {
+      const records =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.findAndCountAll(
+          {
+            where: {
+              agent_advised_independent_flight_booking: "YES",
+              ...(dateFrom &&
+                dateTo && {
+                  messageDate: {
+                    [db.Sequelize.Op.gte]: dateFrom,
+                    [db.Sequelize.Op.lte]: dateTo,
+                  },
+                }),
+            },
+            include: [
+              {
+                model: ChatgptConversationScoreAiWhatsappMessages,
+                as: "messageData",
+
+                attributes: ["ticket", "agent"],
+                include: [
+                  {
+                    model: ChatgptConversationScoreAiAgents,
+                    as: "agentDetails",
+                    required: emails.length > 0,
+                    attributes: ["name", "apiId", "email"],
+                    ...(emails.length > 0 && {
+                      where: {
+                        email: {
+                          [db.Sequelize.Op.in]: emails,
+                        },
+                      },
+                    }),
+                  },
+                ],
+              },
+            ],
+            offset,
+            limit: parseInt(limit, 10),
+            order: [
+              ["createdAt", "DESC"],
+              // [
+              //   { model: ChatgptConversationScoreAiCalls, as: "callData" },
+              //   { model: ChatgptConversationScoreAiAgents, as: "agentData" },
+              //   "name",
+              //   "ASC",
+              // ],
+            ],
+          }
+        );
+      const agent_advised_independent_flight_booking_data = [];
+      for (const record of records.rows) {
+        let agents = [];
+        if (record.messageData && record.messageData.length > 0) {
+          const uniqueAgents = new Map();
+          record.messageData.forEach((msg) => {
+            const agentId = msg.agentDetails?.apiId || "";
+            if (agentId && !uniqueAgents.has(agentId)) {
+              uniqueAgents.set(agentId, {
+                agentName: msg.agentDetails?.name || "",
+                agentId: agentId,
+                agentEmail: msg.agentDetails?.email || "",
+              });
+            }
+          });
+          agents = Array.from(uniqueAgents.values());
+        }
+        const d = {
+          msg_id: record.message_id || "",
+          ticket_number: record.ticket_number || "",
+          details:
+            record.agent_advised_independent_flight_booking_details || "",
+          messageDate: record.messageDate || "",
+          assignedAgents: agents,
         };
         agent_advised_independent_flight_booking_data.push(d);
       }
@@ -1147,7 +1635,12 @@ export default class DataController {
           "================= mp3 file chunking started in background ================="
         );
         this.sendRecordToClient(callRecord); // Not awaited, runs in background
-        this.chunkmediafiles(callRecord); // Not awaited, runs in background
+        if (process.env.MODEL_TYPE === "chatgpt") {
+          this.chunkmediafiles(callRecord); // If you use chatgpt transcription
+        }
+        if (process.env.MODEL_TYPE === "gemini") {
+          this.geminiTranscribe(callRecord); // if you use gemini transcription
+        }
         console.log(
           "================= mp3 file chunking ended ================="
         );
@@ -2038,11 +2531,15 @@ export default class DataController {
     }
   }
 
-  static async getScoreAllUnSummrizedMessages(ticketNumber, callId) {
+  static async getScoreAllUnSummrizedMessages(
+    ticketNumber,
+    callId,
+    messageType
+  ) {
     try {
       // ✅ Find the chat session
       const session = await ChatgptConversationScoreAiChat.findOne({
-        where: { ticketNumber, callId },
+        where: { ticketNumber, callId, messageType },
       });
 
       if (!session) {
@@ -2074,16 +2571,23 @@ export default class DataController {
     }
   }
 
-  static async createScoreNewMessage(ticketNumber, callId, sender, message) {
+  static async createScoreNewMessage(
+    ticketNumber,
+    callId,
+    sender,
+    message,
+    messageType
+  ) {
     try {
       let session = await ChatgptConversationScoreAiChat.findOne({
-        where: { ticketNumber, callId },
+        where: { ticketNumber, callId, messageType },
       });
 
       if (!session) {
         session = await ChatgptConversationScoreAiChat.create({
           ticketNumber,
           callId,
+          messageType,
         });
       }
 
@@ -2101,11 +2605,11 @@ export default class DataController {
       throw err;
     }
   }
-  static async summarizeChatMessages(ticketNumber, callId) {
+  static async summarizeChatMessages(ticketNumber, callId, messageType) {
     try {
       const chatGptModel = "gpt-4o-mini"; // replace with your model if needed
       const session = await ChatgptConversationScoreAiChat.findOne({
-        where: { ticketNumber, callId },
+        where: { ticketNumber, callId, messageType },
       });
 
       if (!session) return;
@@ -2121,7 +2625,7 @@ export default class DataController {
           where: { chatId: session.id, summarized: 0 },
         });
       console.log("Count of unsummarized messages:", countUnSummarizedMessages);
-      if (countUnSummarizedMessages > 2) {
+      if (countUnSummarizedMessages > 10) {
         const messages = await ChatgptConversationScoreAiChatMessages.findAll({
           where: { chatId: session.id, summarized: 0 },
           order: [["createdAt", "ASC"]],
@@ -2192,6 +2696,93 @@ export default class DataController {
     }
   }
 
+  static async summarizeGeminiChatMessages(ticketNumber, callId, messageType) {
+    try {
+      const geminiModel = "gemini-2.5-flash"; // or "gemini-1.5-flash" / "gemini-1.5-pro"
+      const session = await ChatgptConversationScoreAiChat.findOne({
+        where: { ticketNumber, callId, messageType },
+      });
+      if (!session) return;
+      const summarizedMessageLimit = 10;
+      let content = "";
+      let summarized_messages_ids = [];
+
+      // Count unsummarized messages
+      const countUnSummarizedMessages =
+        await ChatgptConversationScoreAiChatMessages.count({
+          where: { chatId: session.id, summarized: 0 },
+        });
+      console.log("Count of unsummarized messages:", countUnSummarizedMessages);
+
+      if (countUnSummarizedMessages > 20) {
+        const messages = await ChatgptConversationScoreAiChatMessages.findAll({
+          where: { chatId: session.id, summarized: 0 },
+          order: [["createdAt", "ASC"]],
+          limit: summarizedMessageLimit,
+        });
+
+        messages.forEach((m) => {
+          summarized_messages_ids.push(m.id);
+          content += `${m.sender}: ${m.message}\n`;
+        });
+
+        // Initialize Gemini
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({
+          model: geminiModel,
+          generationConfig: {
+            maxOutputTokens: 1024,
+            temperature: 0.7,
+          },
+        });
+
+        let prompt = "";
+
+        if (session.summary) {
+          const existingSummary = session.summary;
+          prompt = `Please update the existing summary by including the new messages.
+
+Previous summary:
+${existingSummary}
+
+New messages:
+${content}
+
+Please provide an updated summary that incorporates both the previous summary and the new messages.`;
+        } else {
+          prompt = `Summarize the following conversation:
+
+${content}
+
+Please provide a concise summary of the key points from this conversation.`;
+        }
+
+        console.log("======= Start Gemini Summarization =======");
+
+        const message = await this.retryWithBackoff(async () => {
+          const result = await model.generateContent(prompt);
+          return result.response.text();
+        });
+
+        if (message) {
+          // Update session summary
+          session.summary = message;
+          await session.save();
+
+          // Mark messages as summarized
+          await ChatgptConversationScoreAiChatMessages.update(
+            { summarized: 1 },
+            { where: { id: summarized_messages_ids } }
+          );
+
+          console.log("Summary updated successfully");
+        }
+      }
+    } catch (err) {
+      console.error("Error in summarizeGeminiChatMessages:", err.message);
+    }
+  }
+
   static promptTranscriptQuestionAnswer(conversationString, userQuestion) {
     return `
 You are a smart assistant working for a travel agency.  
@@ -2231,25 +2822,42 @@ ${userQuestion}
     } = request;
 
     try {
-      const { ticketNumber, callId, message: inputMessage } = payload;
+      const {
+        ticketNumber,
+        callId,
+        message: inputMessage,
+        messageType,
+      } = payload;
 
       console.log("Received chat transcription request:", payload);
       const getAllChatMessages = await this.getScoreAllUnSummrizedMessages(
         ticketNumber,
-        callId
+        callId,
+        messageType
       );
       console.log("Fetched chat messages:", getAllChatMessages);
       await this.createScoreNewMessage(
         ticketNumber,
         callId,
         "user",
-        inputMessage
+        inputMessage,
+        messageType
       );
-      const record = await ChatgptConversationScoreAiCalls.findOne({
-        where: { ticketNumber, id: callId },
-      });
-
-      const speechText = record?.speechText || "";
+      let speechText = "";
+      if (messageType === "call") {
+        const record = await ChatgptConversationScoreAiCalls.findOne({
+          where: { ticketNumber, id: callId },
+        });
+        speechText = record?.speechText || "";
+      }
+      if (messageType === "message") {
+        const record =
+          await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findOne({
+            where: { ticketNumber, id: callId },
+          });
+        speechText = record?.gptSummary || "";
+      }
+      console.log("Using speech text for context:", speechText);
       let conversationString = speechText;
 
       let aiMessagesFormat = [
@@ -2313,10 +2921,11 @@ ${userQuestion}
           ticketNumber,
           callId,
           "assistant",
-          gptMessage
+          gptMessage,
+          messageType
         );
 
-        this.summarizeChatMessages(ticketNumber, callId);
+        this.summarizeChatMessages(ticketNumber, callId, messageType);
 
         const responseMessages = [
           {
@@ -2351,9 +2960,170 @@ ${userQuestion}
       };
     }
   }
-  static async getAllScoreChatMessages(ticketNumber, callId) {
+  static async geminiChatTranscription(request) {
+    const {
+      payload,
+      headers: { i18n },
+      user,
+    } = request;
+
+    try {
+      const {
+        ticketNumber,
+        callId,
+        message: inputMessage,
+        messageType,
+      } = payload;
+
+      console.log("Received chat transcription request:", payload);
+      const getAllChatMessages = await this.getScoreAllUnSummrizedMessages(
+        ticketNumber,
+        callId,
+        messageType
+      );
+      console.log("Fetched chat messages:", getAllChatMessages);
+      await this.createScoreNewMessage(
+        ticketNumber,
+        callId,
+        "user",
+        inputMessage,
+        messageType
+      );
+      let speechText = "";
+      if (messageType === "call") {
+        const record = await ChatgptConversationScoreAiCalls.findOne({
+          where: { ticketNumber, id: callId },
+        });
+        speechText = record?.speechText || "";
+      }
+      if (messageType === "message") {
+        const record =
+          await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findOne({
+            where: { ticketNumber, id: callId },
+          });
+        speechText = record?.gptSummary || "";
+      }
+      console.log("Using speech text for context:", speechText);
+      let conversationString = speechText;
+
+      // Build conversation history for Gemini
+      let conversationHistory = [];
+      let systemPrompt = "You are a helpful assistant.";
+
+      if (getAllChatMessages?.summary) {
+        conversationHistory.push({
+          role: "user",
+          parts: [
+            {
+              text: `Summary of our previous conversation: ${getAllChatMessages.summary}`,
+            },
+          ],
+        });
+
+        if (getAllChatMessages.messages?.length) {
+          let content = "";
+          for (const m of getAllChatMessages.messages) {
+            content += `${m.role}: ${m.content}\n`;
+          }
+          conversationHistory.push({
+            role: "user",
+            parts: [
+              {
+                text: `Other conversations between us after previous conversation: ${content}`,
+              },
+            ],
+          });
+        }
+      } else if (getAllChatMessages.messages?.length) {
+        // Convert OpenAI format to Gemini format
+        for (const msg of getAllChatMessages.messages) {
+          if (msg.role === "system") {
+            systemPrompt += `\n${msg.content}`;
+          } else {
+            conversationHistory.push({
+              role: msg.role === "assistant" ? "model" : "user",
+              parts: [{ text: msg.content }],
+            });
+          }
+        }
+      }
+
+      const prompt = this.promptTranscriptQuestionAnswer(
+        conversationString,
+        inputMessage
+      );
+
+      // Combine system prompts
+      const fullSystemPrompt = `${systemPrompt}\n\n${prompt}`;
+
+      // Initialize Gemini
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash", // Fast and cost-effective, use 'gemini-1.5-pro' for better quality
+        generationConfig: {
+          maxOutputTokens: 1500,
+        },
+        systemInstruction: fullSystemPrompt,
+      });
+
+      console.log("======= Start Gemini Call =======");
+
+      // Start chat with history and send message with retry logic
+      const gptMessage = await this.retryWithBackoff(async () => {
+        const chat = model.startChat({
+          history: conversationHistory,
+        });
+        const result = await chat.sendMessage(inputMessage);
+        return result.response.text();
+      });
+
+      if (gptMessage) {
+        const newMsg = await this.createScoreNewMessage(
+          ticketNumber,
+          callId,
+          "assistant",
+          gptMessage,
+          messageType
+        );
+
+        this.summarizeGeminiChatMessages(ticketNumber, callId, messageType);
+
+        const responseMessages = [
+          {
+            id: newMsg.id,
+            role: "assistant",
+            content: gptMessage.replace(/\n/g, "<br>"),
+          },
+        ];
+
+        return {
+          status: 200,
+          data: {
+            status: "success",
+            message: "Message processed successfully",
+            responseMessages,
+          },
+          error: null,
+        };
+      } else {
+        return {
+          status: 500,
+          data: null,
+          error: { message: "No response from Gemini" },
+        };
+      }
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      return {
+        status: 500,
+        data: null,
+        error: { message: i18n.__("CATCH_ERROR"), reason: error.message },
+      };
+    }
+  }
+  static async getAllScoreChatMessages(ticketNumber, callId, messageType) {
     const session = await ChatgptConversationScoreAiChat.findOne({
-      where: { ticketNumber, callId },
+      where: { ticketNumber, callId, messageType },
     });
     if (!session) {
       return { summary: "", messages: [] };
@@ -2390,7 +3160,8 @@ ${userQuestion}
     try {
       const messages = await this.getAllScoreChatMessages(
         payload.ticketNumber,
-        payload.callId
+        payload.callId,
+        payload.messageType
       );
       return {
         status: 200,
@@ -2473,6 +3244,55 @@ ${userQuestion}
       console.error("Error in summarizeMessagesOfTicket:", err.message);
     }
   }
+  static async summarizeMessagesOfTicketGemini(record) {
+    try {
+      const messagesData = JSON.parse(record.messages);
+      // console.log('Messages data for summarization:', messagesData);
+      const conversationString = messagesData
+        .map((msg) => `${msg.type}: ${msg.message}`)
+        .join("\n");
+      console.log("Constructed conversation string:", conversationString);
+
+      const systemPrompt = `You are a helpful assistant that summarizes conversations between travel agents and customers. 
+      Summarize the following conversation in Hebrew, focusing on key points, customer needs, and any action items for the travel agent.
+      Provide a concise summary that captures the essence of the conversation without adding any external information.`;
+
+      const userPrompt = `Conversation:
+      ${conversationString}`;
+
+      // Initialize Gemini
+
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash", // or "gemini-1.5-flash" / "gemini-1.5-pro"
+        generationConfig: {
+          maxOutputTokens: 2000,
+        },
+        systemInstruction: systemPrompt,
+      });
+
+      console.log("======= Start Gemini Summarization =======");
+
+      const summary =
+        (await this.retryWithBackoff(async () => {
+          const result = await model.generateContent(userPrompt);
+          return result.response.text();
+        })) || "No summary generated.";
+
+      console.log("Generated summary:", summary);
+
+      // Update the record with the summary
+      record.gptSummary = summary;
+      record.status = 2; // Mark as summarized
+      await record.save();
+
+      console.log("Record updated with summary:", record.id);
+
+      return { id: record.id, summary };
+    } catch (err) {
+      console.error("Error in summarizeMessagesOfTicket:", err.message);
+    }
+  }
   static async analyzeSummaryOfMessagesOfTicket(record) {
     console.log(
       `============= start analysis of message summary ${record.id} =================`
@@ -2526,6 +3346,57 @@ ${userQuestion}
       this.insertMessageSummaryAnalysis(record);
       console.log(
         "================= chatgpt transcription analysis end ================="
+      );
+    } catch (err) {
+      console.error("Error in analyzeSummaryOfMessagesOfTicket:", err.message);
+    }
+  }
+  static async analyzeSummaryOfMessagesOfTicketGemini(record) {
+    console.log(
+      `============= start analysis of message summary ${record.id} =================`
+    );
+    try {
+      const summaryText = record.gptSummary || "";
+      const prompt = promptTranscriptSummaryProcess(summaryText);
+
+      // Initialize Gemini
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash", // or "gemini-1.5-flash" / "gemini-1.5-pro"
+        generationConfig: {
+          maxOutputTokens: 4000,
+          responseMimeType: "application/json", // Request JSON response
+        },
+        systemInstruction:
+          "You are a conversation analysis assistant for a travel agency.",
+      });
+
+      console.log("======= Start Gemini Analysis =======");
+
+      const gptMessage =
+        (await this.retryWithBackoff(async () => {
+          const result = await model.generateContent(prompt);
+          return result.response.text();
+        })) || JSON.stringify({ error: "No content returned from Gemini" });
+
+      // Step 4: Parse JSON safely
+      let parsed = {};
+      try {
+        parsed = JSON.parse(gptMessage);
+      } catch {
+        parsed = { summary: gptMessage };
+      }
+
+      console.log("Gemini Response:", parsed);
+
+      record.gptAnalysis = JSON.stringify(parsed, null, 2);
+      record.status = 3;
+      await record.save();
+
+      this.insertMessageSummaryAnalysis(record);
+
+      console.log(
+        "================= gemini transcription analysis end ================="
       );
     } catch (err) {
       console.error("Error in analyzeSummaryOfMessagesOfTicket:", err.message);
@@ -2605,15 +3476,19 @@ ${userQuestion}
           message_id: message_id,
           messageDate: record.messageDate,
         });
-        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.create(analysisData);
-        console.log(`Created new analysis record for message ID: ${message_id}`);
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.create(
+          analysisData
+        );
+        console.log(
+          `Created new analysis record for message ID: ${message_id}`
+        );
       }
     } catch (error) {
       console.error("Error inserting/updating analysis record:", error.message);
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
     }
   }
-  static async cronTrack(data){
+  static async cronTrack(data) {
     try {
       await ChatgptConversationScoreAiCronTrack.create({
         cronFunction: data.cronFunction,
@@ -2624,12 +3499,12 @@ ${userQuestion}
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
     }
   }
-  static async getCronTrackData({payload}) {
-     console.log("Fetching cron track data with payload:", payload);
+  static async getCronTrackData({ payload }) {
+    console.log("Fetching cron track data with payload:", payload);
 
     const limit = parseInt(payload?.limit) || 10;
-    const page = parseInt(payload?.page)|| 1;
-   
+    const page = parseInt(payload?.page) || 1;
+
     const offset = (page - 1) * limit;
     const cronFunction = payload?.cron_function || null;
     const date = payload?.date || null;
@@ -2660,23 +3535,24 @@ ${userQuestion}
       return { count: 0, rows: [] };
     }
   }
-  static async getWhatsappMessagesDateIdByTktno({payload}){
+  static async getWhatsappMessagesDateIdByTktno({ payload }) {
     try {
       const ticketNumber = payload?.ticketNumber || "";
-       
-      if(!ticketNumber){
+
+      if (!ticketNumber) {
         return {
           status: 400,
           data: null,
           error: { message: "Ticket number is required" },
         };
       }
-      const records = await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findAll({
-        where: { ticketNumber: ticketNumber },
-        attributes: ['id', 'messageDate'],
-        order: [['messageDate', 'ASC']],
-      });
-       return {
+      const records =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findAll({
+          where: { ticketNumber: ticketNumber },
+          attributes: ["id", "messageDate"],
+          order: [["messageDate", "DESC"]],
+        });
+      return {
         status: 200,
         data: {
           status: "success",
@@ -2686,7 +3562,10 @@ ${userQuestion}
         error: null,
       };
     } catch (error) {
-      console.error("Error in getWhatsappMessagesDateIdByTktno:", error.message);
+      console.error(
+        "Error in getWhatsappMessagesDateIdByTktno:",
+        error.message
+      );
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
       return {
         status: 500,
@@ -2694,31 +3573,35 @@ ${userQuestion}
         error: { message: "CATCH_ERROR", reason: error.message },
       };
     }
-
   }
-  static async getWhatsappMessageWithSummaryAnalysisById({payload}){
-    try{
+  static async getWhatsappMessageWithSummaryAnalysisById({ payload }) {
+    try {
       const messageId = payload?.id || "";
-       
-      if(!messageId){
+
+      if (!messageId) {
         return {
           status: 400,
           data: null,
           error: { message: "Message ID is required" },
         };
       }
-      const record = await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findOne({
-        where: { id: messageId },
-      });
-      
-      if(!record){
+      const record =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysis.findOne({
+          where: { id: messageId },
+        });
+
+      if (!record) {
         return {
           status: 404,
           data: null,
           error: { message: "Message not found" },
         };
       }
-      const d = {...record?.dataValues,messages:JSON.parse(record?.messages||"[]"),gptAnalysis:JSON.parse(record?.gptAnalysis||"{}")};
+      const d = {
+        ...record?.dataValues,
+        messages: JSON.parse(record?.messages || "[]"),
+        gptAnalysis: JSON.parse(record?.gptAnalysis || "{}"),
+      };
       return {
         status: 200,
         data: {
@@ -2729,7 +3612,10 @@ ${userQuestion}
         error: null,
       };
     } catch (error) {
-      console.error("Error in getWhatsappMessageWithSummaryAnalysisById:", error.message);
+      console.error(
+        "Error in getWhatsappMessageWithSummaryAnalysisById:",
+        error.message
+      );
       process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
       return {
         status: 500,
@@ -2737,6 +3623,425 @@ ${userQuestion}
         error: { message: "CATCH_ERROR", reason: error.message },
       };
     }
+  }
 
+  static async retryWithBackoff(fn, maxRetries = 10, initialDelay = 2000) {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === maxRetries - 1) throw error;
+
+        if (
+          error.message.includes("overloaded") ||
+          error.message.includes("503")
+        ) {
+          const delay = initialDelay * Math.pow(2, i);
+          console.log(
+            `Model overloaded. Retrying in ${delay / 1000}s... (${i + 1}/${maxRetries})`
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
+  static async geminiTranscribe(callrecord) {
+    const transcribeModel = "gemini-2.5-flash";
+    const analysisModel = "gemini-2.5-pro";
+    const transcription_prompt = `
+              You are a professional transcriber. Your task is to transcribe the attached audio file in Hebrew.
+              
+              **Instructions:**
+              1. **Speaker Identification:** Listen for names introduced at the start of the call. If speakers identify themselves (e.g., "This is Ofek"), use their names as labels. If names are not mentioned, use "Speaker 1" and "Speaker 2".
+              2. **Format:** Output the text as a script with clear line breaks (e.g., "**Name:** [Text]").
+              3. **Entity Accuracy:** Pay strict attention to dates, numbers, and location names. Transcribe them exactly as spoken.
+              4. **Verbatim:** Do not summarize. Transcribe every word spoken, including filler words if they are significant to the tone, but keep it readable.
+`;
+    console.log(
+      `============= start transcription analysis with model ${transcribeModel} =============`
+    );
+    try {
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+      const audioFilePath = callrecord.mp3File;
+      const uploadResult = await fileManager.uploadFile(audioFilePath, {
+        mimeType: "audio/mp3",
+        displayName: "Audio File",
+      });
+      console.log("Upload Result:", uploadResult);
+      const modelInstance = genAI.getGenerativeModel({
+        model: transcribeModel,
+      });
+
+      const transcription = await this.retryWithBackoff(async () => {
+        const result = await modelInstance.generateContent([
+          {
+            fileData: {
+              mimeType: uploadResult.file.mimeType,
+              fileUri: uploadResult.file.uri,
+            },
+          },
+          "Transcribe this Hebrew conversation accurately. Include speaker labels if possible.",
+        ]);
+        return result.response.text();
+      });
+
+      const modelInstance2 = genAI.getGenerativeModel({ model: analysisModel });
+
+      const analysisText = await this.retryWithBackoff(async () => {
+        const analysisPrompt = promptTranscriptSummaryProcess(transcription);
+        const result = await modelInstance2.generateContent([
+          analysisPrompt,
+          "\nReturn ONLY valid JSON, no markdown code blocks.",
+        ]);
+        return result.response.text();
+      });
+
+      // Clean JSON response (remove markdown if present)
+      let jsonText = analysisText.trim();
+      if (jsonText.startsWith("```json")) {
+        jsonText = jsonText.replace(/```json\n?/g, "").replace(/```\n?$/g, "");
+      } else if (jsonText.startsWith("```")) {
+        jsonText = jsonText.replace(/```\n?/g, "");
+      }
+
+      const analysis = JSON.parse(jsonText);
+      console.log("Transcription and analysis completed.");
+      callrecord.speechText = transcription;
+      callrecord.chatgptText = JSON.stringify(analysis, null, 2);
+      callrecord.chatgptModel = "gemini";
+      callrecord.satisfaction =
+        analysis?.service_score?.expected_satisfaction || 0;
+      callrecord.operationName = "COMPLETED_SEND_TRANSCRIPT_TO_CLIENT";
+      await callrecord.save();
+      this.insertAnalysisRecord(callrecord);
+      this.generateGeminiEmbeddings(callrecord);
+
+      return {
+        transcription,
+        analysis,
+      };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      console.error("Error in geminiTranscribe:", error.message);
+    }
+  }
+  static async generateGeminiEmbeddings(callrecord) {
+    const speechText = callrecord.speechText;
+    if (!speechText || speechText.trim().length === 0) {
+      console.error("No speech text available for embeddings generation");
+      return;
+    }
+    const chunkSize = 500; // approx. 300–500 tokens depending on language
+    const overlap = 50; // 10% overlap for context retention
+    const chunks = [];
+    for (let i = 0; i < speechText.length; i += chunkSize - overlap) {
+      let end = i + chunkSize;
+      // Avoid cutting in the middle of a word
+      if (end < speechText.length) {
+        while (end < speechText.length && speechText[end] !== " ") {
+          end++;
+        }
+      }
+      const chunk = speechText.slice(i, end).trim();
+      chunks.push(chunk);
+    }
+    // console.log(`Created ${chunks.length} text chunks`);
+    try {
+      const embeddings = [];
+      // Process each chunk
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        console.log(`Processing chunk ${i + 1}/${chunks.length}`);
+        const embeddingResponse = await getGeminiEmbedding(chunk);
+        // console.log(`Embedding response for chunk ${i + 1}:`, embeddingResponse);
+        embeddings.push({
+          chunkIndex: i,
+          text: chunk,
+          embedding: embeddingResponse,
+        });
+        console.log(`Embedding generated for chunk ${i + 1}`);
+      }
+      if (embeddings.length > 0) {
+        try {
+          callrecord.embedding = JSON.stringify(embeddings);
+          await callrecord.save();
+          console.log("All embeddings generated and saved to call record");
+        } catch (error) {
+          console.error("Error saving embeddings:", error.message);
+          // If embeddings field doesn't exist or JSON too large, save to file instead
+          // const embeddingsPath = `./uploads/score_ai/embeddings/embeddings_${callrecord.id}.json`;
+          // fs.writeFileSync(embeddingsPath, JSON.stringify(embeddings, null, 0), 'utf8');
+          // console.log("Embeddings saved to file:", embeddingsPath);
+        }
+      }
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      console.error("Error in generateEmbeddings:", error.message);
+    }
+  }
+  static async generateGeminiEmbeddingsAskQuestion(callrecords, question) {
+    try {
+      const matchedChunks = [];
+      const query = question;
+      const topK = 5;
+      const threshold = 0.3;
+      const ticket_number = callrecords?.[0]?.ticketNumber || "Unknown";
+      const call_ids = [];
+
+      for (const callrecord of callrecords) {
+        call_ids.push(callrecord.id);
+        console.log(
+          "===============  Processing call record ID:=====================",
+          callrecord.id
+        );
+        const embeddingData = callrecord.embedding;
+        if (!embeddingData) {
+          console.error(
+            "No embedding data found for call record ID:",
+            callrecord.id
+          );
+          continue;
+        }
+        const chunkEmbeddingJSON = JSON.parse(embeddingData);
+        const queryEmbedding = await getGeminiEmbedding(query);
+        const results = chunkEmbeddingJSON
+          .map((chunk) => {
+            const score = cosineSimilarity(queryEmbedding, chunk.embedding);
+            if (score >= threshold) {
+              return { ...chunk, score, callrecordId: callrecord.id };
+            }
+          })
+          .filter((r) => r !== undefined);
+        matchedChunks.push(...results);
+      }
+
+      matchedChunks.sort((a, b) => b.score - a.score).slice(0, topK);
+
+      for (const chunk of matchedChunks) {
+        console.log(
+          `Record ID: ${chunk.callrecordId} \n Matched Chunk (Score: ${chunk.score.toFixed(4)}): ${JSON.stringify(chunk.text, null, 2)} \n  `
+        );
+      }
+
+      const context = matchedChunks
+        .map((item, idx) => `[${item.callrecordId}] ${item.text}`)
+        .join("\n\n");
+
+      // Detect query language and adjust response language accordingly
+      const isEnglish = /^[a-zA-Z\s.,!?'"()-]+$/.test(query.trim());
+
+      const systemPrompt = `You are a helpful assistant that answers questions based on the provided context. 
+      Use only the information from the context to answer. If the context doesn't contain enough information, say so.
+      Always cite which source number [1], [2], etc. you used for each piece of information.
+      ${isEnglish ? "Answer in English." : "Answer in Hebrew."}`;
+
+      const userPrompt = `Context:
+      ${context}
+      
+      Question: ${query}
+      
+      Please provide a clear, accurate answer based on the context above. Cite your sources using [1], [2], etc.`;
+
+      // Initialize Gemini
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        generationConfig: {
+          maxOutputTokens: 1500,
+        },
+      });
+
+      // Combine system and user prompts for Gemini (it doesn't have separate system role)
+      const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+
+      const result = await model.generateContent(combinedPrompt);
+      const answer = result.response.text();
+
+      console.log("Answer:", answer);
+
+      ChatgptConversationScoreAiMultipleCallQa.create({
+        ticket_number,
+        call_ids: JSON.stringify(call_ids),
+        question: query,
+        answer: answer,
+      });
+
+      return { answer };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      console.error("Error in generateEmbeddingsAskQuestion:", error.message);
+      return { answer: "Error generating answer." };
+    }
+  }
+  static async whatappmessageEmailAnalysis() {
+    try {
+      const exchange_rate_resistance_data = [];
+      const competitors_mentioned_data = [];
+      const payment_terms_resistance_data = [];
+      const cancellation_policy_resistance_data = [];
+      const agent_advised_independent_flight_booking_data = [];
+
+      const records =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.findAll({
+          where: {
+            [db.Sequelize.Op.or]: [
+              { exchange_rate_resistance: "YES" },
+              { competitors_mentioned: "YES" },
+              { payment_terms_resistance: "YES" },
+              { cancellation_policy_resistance: "YES" },
+              { agent_advised_independent_flight_booking: "YES" },
+            ],
+            isSent: 0,
+          },
+          include: [
+            {
+              model: ChatgptConversationScoreAiWhatsappMessages,
+              as: "messageData",
+              attributes: ["ticket", "agent"],
+              include: [
+                {
+                  model: ChatgptConversationScoreAiAgents,
+                  as: "agentDetails",
+                  attributes: ["name", "apiId", "email"],
+                },
+              ],
+            },
+          ],
+          limit: 500,
+        });
+
+      const recordIds = [];
+
+      for (const record of records) {
+        let agents = [];
+        recordIds.push(record.id);
+        if (record.messageData && record.messageData.length > 0) {
+          const uniqueAgents = new Map();
+          record.messageData.forEach((msg) => {
+            const agentId = msg.agentDetails?.apiId || "";
+            if (agentId && !uniqueAgents.has(agentId)) {
+              uniqueAgents.set(agentId, {
+                agentName: msg.agentDetails?.name || "",
+                agentId: agentId,
+                agentEmail: msg.agentDetails?.email || "",
+              });
+            }
+          });
+          agents = Array.from(uniqueAgents.values());
+        }
+        const d = {
+          ticket_number: record.ticket_number || "",
+          messageDate: record.messageDate || "",
+          assignedAgents: agents,
+        };
+        if (record.exchange_rate_resistance === "YES") {
+          const c = { ...d };
+          Object.assign(c, {
+            details: record.exchange_rate_resistance_details || "",
+          });
+          exchange_rate_resistance_data.push(c);
+        }
+        if (record.competitors_mentioned === "YES") {
+          const f = { ...d };
+          Object.assign(f, { details: record.competitor_names || "" });
+          competitors_mentioned_data.push(f);
+        }
+        if (record.payment_terms_resistance === "YES") {
+          const g = { ...d };
+          Object.assign(g, {
+            details: record.payment_terms_resistance_details || "",
+          });
+          payment_terms_resistance_data.push(g);
+        }
+        if (record.cancellation_policy_resistance === "YES") {
+          const h = { ...d };
+          Object.assign(h, {
+            details: record.cancellation_policy_resistance_details || "",
+          });
+          cancellation_policy_resistance_data.push(h);
+        }
+        if (record.agent_advised_independent_flight_booking === "YES") {
+          const i = { ...d };
+          Object.assign(i, {
+            details:
+              record.agent_advised_independent_flight_booking_details || "",
+          });
+          agent_advised_independent_flight_booking_data.push(i);
+        }
+      }
+
+      const dt =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisDataSendRecord.create(
+          {
+            recordIds: JSON.stringify(recordIds),
+          }
+        );
+
+      return {
+        status: 200,
+        data: {
+          recordId: dt.id,
+          competitors_mentioned_data,
+          payment_terms_resistance_data,
+          cancellation_policy_resistance_data,
+          agent_advised_independent_flight_booking_data,
+        },
+        error: null,
+      };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      console.error("Error in whatappmessageEmailAnalysis:", error.message);
+    }
+  }
+  static async markWhatsappMessageAnalysisDataAsSent({ payload }) {
+    try {
+      const recordId = payload?.recordId || null;
+      if (!recordId) {
+        return {
+          status: 400,
+          data: null,
+          error: { message: "Record ID is required" },
+        };
+      }
+      const record =
+        await ChatgptConversationScoreAiWhatsappMessagesAnalysisDataSendRecord.findOne(
+          {
+            where: { id: recordId },
+          }
+        );
+      if (!record) {
+        return {
+          status: 404,
+          data: null,
+          error: { message: "Record not found" },
+        };
+      }
+
+      const recordIds = JSON.parse(record.recordIds || "[]");
+
+      await ChatgptConversationScoreAiWhatsappMessagesAnalysisData.update(
+        { isSent: 1 },
+        { where: { id: recordIds } }
+      );
+      return {
+        status: 200,
+        data: {
+          status: "success",
+          recordIds: recordIds,
+          message: "Records marked as sent successfully",
+        },
+        error: null,
+      };
+    } catch (error) {
+      process.env.SENTRY_ENABLED === "true" && Sentry.captureException(error);
+      console.error(
+        "Error in markWhatsappMessageAnalysisDataAsSent:",
+        error.message
+      );
+    }
   }
 }

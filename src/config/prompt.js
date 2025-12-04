@@ -426,34 +426,61 @@ ${conversationString}`;
 }
 
 export function promptTranscriptSummaryProcess(conversationString) {
-  const prompt = `Analyze this Hebrew travel agent-customer conversation. Return valid JSON with English keys, Hebrew values. 
-
-**Rules:**
-- Numbers as numeric type (use 0 for unknown)
-- Text as strings (use empty "" for unknown)
-- Booleans: true/false only
-- Enums: pick ONE value only (e.g., "high" not "high/medium/low")
-- Service scores: 1-5 scale (1=poor, 5=excellent)
-- Dates: "DD/MM/YYYY" format or empty ""
-- If conversation is too short/incomplete, fill what's available and mark others as empty/0/false
-
+  // We escape the backticks for the inner JSON block to ensure JS safety
+  const prompt = `
+Analyze this Hebrew travel agent-customer conversation.
+Return valid JSON with English keys.
+ 
+**OUTPUT FORMAT RULES:**
+- Text content values: Hebrew
+- Booleans: true/false
+- Numbers: Numeric (0 if unknown)
+- Enums: English (e.g., "High", "Medium", "Low")
+- Dates: "DD/MM/YYYY" or "" if unknown
+ 
+**STRICT LOGIC DEFINITIONS:**
+ 
+**1. Competitor Detection ('competitors_mentioned'):**
+- **FALSE (Default):**
+  - General words (flights, domestic, international).
+  - Transportation apps (Bolt, Grab).
+  - Random hotel names.
+  - "Red Brick" or "Thana" mentions.
+  - Mere mentions of OTAs (Booking.com, Agoda, Expedia) without a confirmed booking.
+- **TRUE (Only if):**
+  - The customer names a specific rival travel agency.
+  - The customer explicitly states they *already have* a booking/reservation at Booking.com or Agoda.
+ 
+**2. Cancellation Policy Resistance ('cancellation_policy_resistance'):**
+- **FALSE:** - Customer accepted "non-refundable" terms.
+  - Customer has already paid/booked.
+- **TRUE:** - Customer actively objects, argues, or complains about cancellation terms *before* the deal is closed.
+ 
+**3. Flight Booking Logic ('agent_advised_independent_flight_booking'):**
+- **FALSE:** - Agent says "we are not the cheapest" (standard disclaimer).
+  - Agent advises on booking order (e.g., "Book international first").
+  - Customer uses points/miles.
+- **TRUE:**
+  - Agent explicitly tells the customer to go buy the flight themselves elsewhere for a better deal/convenience outside of the scenarios above.
+ 
+**JSON OUTPUT STRUCTURE:**
 \`\`\`json
 {
-  "summary": "",
+  "summary": "Short summary in Hebrew",
   "analysis": {
-    "conversation_summary": "",
-    "customer_intent": "",
-    "destination": "",
+    "conversation_summary": "Detailed summary in Hebrew",
+    "customer_intent": "Hebrew",
+    "destination": "Hebrew name of destination",
     "budget_constraint": false,
-    "objections": [],
-    "interest_level": "",
-    "overall_sentiment": ""
+    "objections": ["Hebrew list"],
+    "interest_level": "High/Medium/Low",
+    "overall_sentiment": "Positive/Neutral/Negative"
   },
   "insights": {
     "conversion_probability": 0.0,
-    "engagement_level": "",
-    "urgency_level": "",
-    "booking_readiness": ""
+    "engagement_level": "High/Medium/Low",
+    "urgency_level": "High/Medium/Low",
+    "booking_readiness": "High/Medium/Low"
   },
   "service_score": {
     "message_clarity": 0,
@@ -474,43 +501,37 @@ export function promptTranscriptSummaryProcess(conversationString) {
   },
   "financial_analysis": {
     "total_amount_discussed": 0,
-    "budget_flexibility_level": "",
-    "price_sensitivity": "",
+    "budget_flexibility_level": "High/Medium/Low",
+    "price_sensitivity": "High/Medium/Low",
     "discount_requested": false,
-    "payment_method_discussed": "",
-    "price_objections": [],
+    "payment_method_discussed": "Hebrew (e.g., credit card, transfer)",
+    "price_objections": ["Hebrew list"],
     "exchange_rate_discussed": false,
-    "exchange_rate_concerns": [],
-    
-    
+    "exchange_rate_concerns": ["Hebrew list"],
     "competitors_mentioned": false,
-    "competitors_details": "",
-
+    "competitors_details": "Hebrew details ONLY if specific agency named or active Booking/Agoda reservation exists.",
     "payment_terms_or_exchange_rates_resistance": false,
-    "payment_terms_or_exchange_rates_resistance_details": "",
-
+    "payment_terms_or_exchange_rates_resistance_details": "Hebrew text",
     "cancellation_policy_resistance": false,
-    "cancellation_policy_resistance_details": ""
+    "cancellation_policy_resistance_details": "Hebrew text"
   },
   "booking_details": {
-    "travel_dates": "",
-    "destination_confirmed": "",
+    "travel_dates": "DD/MM/YYYY",
+    "destination_confirmed": "Hebrew",
     "adults_count": 0,
     "children_count": 0,
     "travel_duration_days": 0,
-    "special_requirements": [],
-    "accommodation_type": "",
+    "special_requirements": ["Hebrew list"],
+    "accommodation_type": "Hebrew",
     "transportation_included": false,
-
     "agent_advised_independent_flight_booking": false,
-    "agent_advised_independent_flight_booking_details": ""
+    "agent_advised_independent_flight_booking_details": "Hebrew text"
   }
 }
-
 \`\`\`
-
-Conversation:
+ 
+**Conversation:**
 ${conversationString}`;
+
   return prompt;
 }
- 

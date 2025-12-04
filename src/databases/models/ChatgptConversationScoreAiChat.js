@@ -33,6 +33,11 @@ export default function ChatgptConversationScoreAiChat(sequelize, DataTypes) {
                 allowNull: false,
                 defaultValue: DataTypes.NOW,
                 field: 'updated_at'
+            },
+            messageType:{
+                type: DataTypes.STRING(50),
+                allowNull: true,
+                field: 'message_type'
             }
         },
         {

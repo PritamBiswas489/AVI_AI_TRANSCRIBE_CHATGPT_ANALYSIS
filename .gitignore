@@ -1,4 +1,5 @@
 /node_modules
+/test_audio_files
 .env
 *.zip
 package-lock.json

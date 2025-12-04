@@ -56,9 +56,15 @@ import { saveAgentData } from "./src/cron/saveAgentData.js";
 
 
 // cron.schedule(
-//     "0 3 * * *", // Run every day at 03:00 AM
+//     "0 3 * * *", // Run every day at 03:00 AM (UTC)
 //       () => {
-//           saveTicketId();
+//         const yesterday = new Date();
+//         yesterday.setDate(yesterday.getDate() - 1);
+//         const formattedDate = yesterday.toISOString().split('T')[0];
+//         saveTicketId(formattedDate);
+//     },
+//     {
+//         timezone: "UTC"
 //     }
 // );
 

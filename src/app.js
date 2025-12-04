@@ -61,8 +61,14 @@ app.use(
 app.use(compression());
 app.use(helmet());
 app.use(locales);
+
 app.use((req, res, next) => {
-   const defaultHeaders = {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  
+  const defaultHeaders = {
     'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
     'accept': '*/*',
     'connection': 'keep-alive',
@@ -80,6 +86,8 @@ app.use((req, res, next) => {
 });
 // app.use(trackIpAddressDeviceId);
 app.use(customReturn);
+
+
 
 app.use(
   ["/api-docs", "/swagger"],

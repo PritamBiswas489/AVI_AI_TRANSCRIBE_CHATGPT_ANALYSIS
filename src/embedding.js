@@ -2,6 +2,7 @@ import "./config/environment.js";
 import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
+import { GoogleGenerativeAI  } from "@google/generative-ai";
 const OPENAI_OBJECT = new OpenAI({ apiKey: process.env.CHATGPT_API_KEY });
 
 export const cosineSimilarity = (a, b) => {
@@ -34,6 +35,16 @@ export async function getEmbedding(text, model = "text-embedding-3-small") {
     model: model,
   });
   return response.data[0].embedding;
+}
+
+export async function getGeminiEmbedding(text, model = "text-embedding-004") {
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const embeddingModel = genAI.getGenerativeModel({ model: model });
+  
+  const cleanText = text.replace(/\n/g, " ");
+  
+  const result = await embeddingModel.embedContent(cleanText);
+  return result.embedding.values;
 }
 
 export async function searchInEmbedding(query, topK = 5, threshold = 0.3) {

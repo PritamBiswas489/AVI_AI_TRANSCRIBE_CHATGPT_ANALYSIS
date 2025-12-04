@@ -4,10 +4,11 @@ import DataController from "../controllers/data.controller.js";
 
 const {ChatgptConversationScoreAiWhatsappMessages,  ChatgptConversationScoreAiWhatsappMessagesAnalysis } = db;
 
-const CHECK_DATE = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-console.log('CHECK_DATE:', CHECK_DATE);
+// Get yesterday's date in UTC
+ 
 //save ticket id
-export const saveTicketId = async () => {
+export const saveTicketId = async (CHECK_DATE) => {
+    console.log(`Executing saveTicketId for date: ${CHECK_DATE}`);
     const start = CHECK_DATE + " 00:00:00";
     const end = CHECK_DATE + " 23:59:59";
     DataController.cronTrack({cronFunction: "saveTicketId", data: {start, end}});
@@ -123,11 +124,18 @@ export const summerizeMessagesOfTicket = async () => {
         where: {
            status: 1
         },
-        limit: 100,
+        limit: 200,
         order: [['messageDate', 'DESC']]
     });
     for (const record of getData) {
-        DataController.summarizeMessagesOfTicket(record);
+        if(process.env.MODEL_TYPE === 'chatgpt'){
+            console.log("================== chatgpt summarization ==================");
+             DataController.summarizeMessagesOfTicket(record);
+        }else if(process.env.MODEL_TYPE === 'gemini'){
+            console.log("================== gemini summarization ==================");
+             DataController.summarizeMessagesOfTicketGemini(record);
+        }
+       
     }
     console.log(`Started summarization for ${getData.length} ticket(s)`);
 }
@@ -145,8 +153,24 @@ export const analyzeSummaryOfMessagesOfTicket = async () => {
         order: [['messageDate', 'DESC']]
     });
     for (const record of getData) {
-        DataController.analyzeSummaryOfMessagesOfTicket(record);
+        if(process.env.MODEL_TYPE === 'chatgpt'){
+            console.log("================== chatgpt analysis ==================");
+            DataController.analyzeSummaryOfMessagesOfTicket(record);
+        }else if(process.env.MODEL_TYPE === 'gemini'){
+            console.log("================== gemini analysis ==================");
+           DataController.analyzeSummaryOfMessagesOfTicketGemini(record);
+        }
     }
 
 }
+
+ 
+
+const testSaveTicketId = async () => {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const formattedDate = yesterday.toISOString().split('T')[0];
+            saveTicketId(formattedDate);
+}
+// testSaveTicketId();
 // analyzeSummaryOfMessagesOfTicket();

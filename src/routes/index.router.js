@@ -1,4 +1,5 @@
 import express from 'express';
+import "../config/environment.js";
 import DataController from '../controllers/data.controller.js';
 import db from "../databases/models/index.js";
 import { checkSchema, validationResult } from "express-validator";
@@ -554,6 +555,270 @@ router.get('/get-agent-advised-independent-flight-booking-data', async (req, res
     res.return(response);
 });
 
+
+/**
+ * @swagger
+ * /api/whatappmessage/email-analysis-data:
+ *   get:
+ *     summary: Get email analysis data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     responses:
+ *       200:
+ *         description: Returns email analysis data
+ */
+router.get('/whatappmessage/email-analysis-data', async (req, res) => {
+    const response = await DataController.whatappmessageEmailAnalysis({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+/**
+ * @swagger
+ * /api/whatappmessage/email-analysis-data/mark-as-sent:
+ *   post:
+ *     summary: Mark email analysis data as sent
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               recordId:
+ *                 type: string
+ *                 description: Record ID to mark as sent
+ *             required:
+ *               - recordId
+ *     responses:
+ *       200:
+ *         description: Record marked as sent successfully
+ */
+router.post('/whatappmessage/email-analysis-data/mark-as-sent', async (req, res) => {
+    const response = await DataController.markWhatsappMessageAnalysisDataAsSent({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+
+});
+
+/**
+ * @swagger
+ * /api/whatappmessage/get-competitors-mentioned-data:
+ *   get:
+ *     summary: Get competitors mentioned data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
+ *     responses:
+ *       200:
+ *         description: Returns competitors mentioned data
+ */
+router.get('/whatappmessage/get-competitors-mentioned-data', async (req, res) => {
+    const response = await DataController.whatappmessageCompetitorsMentionedData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
+
+
+
+
+/**
+ * @swagger
+ * /api/whatappmessage/get-payment-terms-or-exchange-rates-resistance-data:
+ *   get:
+ *     summary: Get payment terms resistance data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
+ *     responses:
+ *       200:
+ *         description: Returns payment terms resistance data
+ */
+router.get('/whatappmessage/get-payment-terms-or-exchange-rates-resistance-data', async (req, res) => {
+    const response = await DataController.whatappmessagePaymentTermsResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+
+
+
+/**
+ * @swagger
+ * /api/whatappmessage/get-cancellation-policy-resistance-data:
+ *   get:
+ *     summary: Get cancellation policy resistance data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
+ *     responses:
+ *       200:
+ *         description: Returns cancellation policy resistance data
+ */
+router.get('/whatappmessage/get-cancellation-policy-resistance-data', async (req, res) => {
+    const response = await DataController.whatsappMessageCancellationPolicyResistanceData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
+
+/**
+ * @swagger
+ * /api/whatappmessage/get-agent-advised-independent-flight-booking-data:
+ *   get:
+ *     summary: Get agent advised independent flight booking data
+ *     tags: [Data endpoints]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: fromDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: Start date for filtering data
+ *       - in: query
+ *         name: toDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *           nullable: true
+ *         description: End date for filtering data
+ *       - in: query
+ *         name: emails
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         example: ""
+ *         description: Comma-separated list of emails to filter by
+ *     responses:
+ *       200:
+ *         description: Returns agent advised independent flight booking data
+ */
+router.get('/whatappmessage/get-agent-advised-independent-flight-booking-data', async (req, res) => {
+    const response = await DataController.whatappmessageAgentAdvisedIndependentFlightBookingData({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    res.return(response);
+});
 /**
  * @swagger
  * /api/execute-generate-chunk-media:
@@ -781,12 +1046,22 @@ router.post('/execute-generate-embeddings-ask-question', async (req, res) => {
     }
     await Promise.all(getcalls.map(async (call) => {
         if (!call.embedding) {
-            await DataController.generateEmbeddings(call);
+            if(process.env.MODEL_TYPE === 'gemini') {
+                await DataController.generateGeminiEmbeddings(call);
+            }
+            if(process.env.MODEL_TYPE === 'chatgpt') {
+                await DataController.generateEmbeddings(call);
+            }
         }
     }));
-
-    
-    const data = await DataController.generateEmbeddingsAskQuestion(getcalls, question);
+    let data = {};
+    if(process.env.MODEL_TYPE === 'chatgpt') {
+       data = await DataController.generateEmbeddingsAskQuestion(getcalls, question);
+    }
+    if(process.env.MODEL_TYPE === 'gemini') {
+       data = await DataController.generateGeminiEmbeddingsAskQuestion(getcalls, question);
+    }
+    data.MODEL_TYPE = process.env.MODEL_TYPE;
     res.return(data);
 
 });
@@ -871,6 +1146,135 @@ router.post('/send-record-to-client', async (req, res) => {
     await DataController.sendRecordToClient(getcall);
     res.return({ message: 'ChatGPT transcription processing started' });
 });
+
+
+
+/**
+ * @swagger
+ * /api/gemini-transcribe:
+ *   post:
+ *     summary: Gemini transcribe endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               call_id:
+ *                 type: string
+ *                 description: Call ID parameter
+ *     responses:
+ *       200:
+ *         description: gemini-transcribe endpoint is working
+ */
+router.post('/gemini-transcribe', async (req, res) => {
+    const callId = req.body.call_id;
+    if (!callId) {
+        return res.status(400).json({ error: 'call_id is required' });
+    }
+    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
+
+    if (!getcall) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    // console.log("getcall", getcall);
+    const result = await DataController.geminiTranscribe(getcall);
+    res.return({ message: 'ChatGPT transcription processing started', result });
+});
+
+
+/**
+ * @swagger
+ * /api/gemini-execute-generate-embeddings:
+ *   post:
+ *     summary: Gemini execute generate embeddings endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               call_id:
+ *                 type: string
+ *                 description: Call ID parameter
+ *     responses:
+ *       200:
+ *         description: gemini-execute-generate-embeddings endpoint is working
+ */
+router.post('/gemini-execute-generate-embeddings', async (req, res) => {
+    const callId = req.body.call_id;
+    if (!callId) {
+        return res.status(400).json({ error: 'call_id is required' });
+    }
+    const getcall = await ChatgptConversationScoreAiCalls.findOne({ where: { id: callId } });
+    if (!getcall) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    await DataController.generateGeminiEmbeddings(getcall);
+    res.return({ message: 'Embeddings generation started' });
+
+});
+
+
+/**
+ * @swagger
+ * /api/execute-gemini-generate-embeddings-ask-question:
+ *   post:
+ *     summary: Execute generate embeddings ask question endpoint
+ *     tags: [Execute data individually]
+ *     security:
+ *       - bearerAuth: []
+ *       - refreshToken: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               call_id:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of Call ID parameters
+ *                 default: ["1", "2"]
+ *               question:
+ *                 type: string
+ *                 description: Question to ask about the embeddings
+ *     responses:
+ *       200:
+ *         description: execute-gemini-generate-embeddings-ask-question endpoint is working
+ */
+router.post('/execute-gemini-generate-embeddings-ask-question', async (req, res) => {
+    const callId = req.body.call_id;
+    const question = req.body.question;
+    if (callId.length === 0) {
+        return res.status(400).json({ error: 'call_id is required' });
+    }
+     
+    const getcalls = await ChatgptConversationScoreAiCalls.findAll({ where: { id: { [db.Sequelize.Op.in]: callId } } });
+   
+    if (!getcalls) {
+        return res.status(404).json({ error: 'Call record not found' });
+    }
+    await Promise.all(getcalls.map(async (call) => {
+        if (!call.embedding) {
+            await DataController.generateGeminiEmbeddings(call);
+        }
+    }));
+    
+    const data = await DataController.generateGeminiEmbeddingsAskQuestion(getcalls, question);
+    res.return(data);
+
+});
+
 
 
 
@@ -1034,6 +1438,9 @@ const validateChatgptChatTranscription = checkSchema({
  *               message:
  *                 type: string
  *                 description: Message content
+ *               messageType:
+ *                 type: string
+ *                 description: Message type
  *             required:
  *               - ticketNumber
  *               - callId
@@ -1047,7 +1454,16 @@ router.post('/chatgpt-chat-transcription',validateChatgptChatTranscription,  asy
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
     }
-    const response = await DataController.chatgptChatTranscription({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    let response = {};
+    if(process.env.MODEL_TYPE === 'chatgpt') {
+        response = await DataController.chatgptChatTranscription({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+    }
+    if(process.env.MODEL_TYPE === 'gemini') {
+        response = await DataController.geminiChatTranscription({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
+
+    }
+    response.MODEL_TYPE = process.env.MODEL_TYPE;
+   
     res.return(response);
 });
 
@@ -1073,6 +1489,12 @@ router.post('/chatgpt-chat-transcription',validateChatgptChatTranscription,  asy
  *           type: string
  *         required: true
  *         description: Call ID to retrieve messages for
+ *       - in: query
+ *         name: messageType
+ *         schema:
+ *           type: string
+ *           nullable: true
+ *         description: Message type to filter by
  *     responses:
  *       200:
  *         description: Returns chat transcription messages
@@ -1179,6 +1601,11 @@ router.get('/whatsapp-message-with-summary-analysis-by-id', async (req, res) => 
     const response = await DataController.getWhatsappMessageWithSummaryAnalysisById({ payload: { ...req.params, ...req.query, ...req.body }, headers: req.headers });
     res.return(response);
 });
+
+
+
+
+
 
 
 

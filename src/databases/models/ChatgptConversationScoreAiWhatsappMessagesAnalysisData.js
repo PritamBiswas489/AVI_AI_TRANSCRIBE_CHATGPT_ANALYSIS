@@ -62,6 +62,11 @@ export default function ChatgptConversationScoreAiWhatsappMessagesAnalysisData(s
                 allowNull: true,
                 
             },
+            isSent:{
+                type: DataTypes.INTEGER,
+                allowNull: true,
+                defaultValue: 0,
+            }
         },
         {
             tableName: 'chatgpt_conversation_score_ai_whatsapp_messages_analysis_data',
